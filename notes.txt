@@ -1,0 +1,15 @@
+music generator notes:
+	Generate two lines, and merge them together.
+	Problem with playing them separately: will still require multiple threads
+		b/c one line will need to hold or rest => sleep() thread, but that would stall the other one as well.
+dynamics:
+
+
+note lengths:
+
+
+
+no need to sustain. just add reverb/feed-back loop
+This means won't have to worry about pedalling and unpedalling
+
+
