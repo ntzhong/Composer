@@ -199,6 +199,7 @@ def determineMelodicRhythm(quality):
 	measure = []
 	measure.append(4) #JUST A PLACEHOLDER
 	rhythm.append(measure)
+	return rhythm
 
 
 #returns a chord progression for entirety of song. key_quality = "maj" or "min"
@@ -217,30 +218,38 @@ def constructChordProg(key_quality):
 	for phrase in range(0, phrases_in_song):
 		for measure in range(0,PHRASE_LENGTH):
 			for chord in range(0, CHORDS_PER_MEASURE):
-
+				#maybe create chance of separate branch, where harmony just walks down and back up
 				randVal = randint(0, 20) #determines buckets for probabilities
 				
-				if (phrase > 0) and (measure == 0) and (chord == 0): #start of phrase, but not song. small chance of relative minor
-					#80% tonic, 20% relative minor
-					if randVal < 16:
-						chordProgression.append(scale[0])
-					else:
-						chordProgression.append(scale[5])
-
-				elif (phrase==0) and (measure == 0) and (chord == 0): #beginning of song
+				if (phrase + measure + chord == 0): #beginning of song
 					chordProgression.append(scale[0]) #tonic, 100%
 
 				elif (phrase == phrases_in_song-1) and (measure == PHRASE_LENGTH-1) and (chord == CHORDS_PER_MEASURE-1): #right before end of song
 					#dominant = 100%
 					chordProgression.append(scale[4])
 
+				elif (phrase > 0) and (measure == 0) and (chord == 0): #start of phrase, but not song. small chance of relative minor
+					#80% tonic, 20% relative minor
+					if randVal < 16:
+						chordProgression.append(scale[0])
+					else:
+						chordProgression.append(scale[5])
+
 				elif (measure == PHRASE_LENGTH-1): #end of phrase. high chance of dominant. can also be 4
 					#dominant 85%
 					#subDom = 10%
+					if randVal < 16:
+						chordProgression.append(scale[4])
+					else:
+						chordProgression.append(scale[3])
 
 				else: #probability. depends on previous, and like 1% chance of being tonic.
+					options = [scale[0], scale[2], scale[3], scale[4], scale[5]]
+					chordProgression.append(randint(0, len(options)))
 
-	chordProgression.append(scale[0]) #Resolve w/ tonic
+	for i in range (0, CHORDS_PER_MEASURE):
+		chordProgression.append(scale[0]) #Resolve final measure w/ tonic
+		
 	return chordProgression
 
 #this constructs melody+harmony simultaneously, so relations can be considered
