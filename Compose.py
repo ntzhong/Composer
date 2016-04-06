@@ -104,7 +104,7 @@ def inv(triad, n):
 	return root
 
 
-#return true if curBeat lies within beat. e.g. if 2.5 beats left, then in 2nd beat. beat is a hole number. curBeat is float.
+#return true if curBeat lies within beat. e.g. if 2.5 beats left, then in 2nd beat. beat is a whole number. curBeat is float.
 def withinBeat(curBeat, beat):
 	return (curBeat >= beat) and (curBeat < beat+1)
 
@@ -112,6 +112,28 @@ def withinBeat(curBeat, beat):
 def isBetween(value, minV, maxV):
 	return (minV <= value) and (value < maxV) 
 
+
+#takes array of items, with an associated distribution array, and return an item based on distribution
+#note that distrubtion does not have to be normalized
+def selectFromDist(itemArray, distribution):
+	#take cumulative sum
+	cumDist = []
+	total = 0
+	i = 0
+	for p in distribution:
+		total += p
+		cumDist[i] = total
+		i += 1
+
+	#sample	and compare probability buckets
+	sample = random.randint(0, total+1)
+	i = 0
+	for cumP in cumDist:
+		if (sample <= cumP):
+			return itemArray[i]
+		i += 1
+
+	print("distribution selection error")
 
 #0 = normal
 #1 = lengthy and emotional
@@ -249,26 +271,47 @@ def constructChordProg(key_quality):
 
 	for i in range (0, CHORDS_PER_MEASURE):
 		chordProgression.append(scale[0]) #Resolve final measure w/ tonic
-		
+
 	return chordProgression
+
 
 #this constructs melody+harmony simultaneously, so relations can be considered
 	#(easier to decide pick-ups, exceptions, etc)
-def compose(file):
+	#file is a MIDIFile object. chordProgression is an array of base values
+def compose(file, chordProgression):
 	vol = N
 	harmVol = vol-5
-	if MAJORKEY:
-		chordProg = constructChordProg("maj")
-	else:
-		chordProg = constructChordProg("min")
+
 
 
 #takes in a MIDIFile object and constructs composition
-#constructs two independent lines, to be combined at the end
-def constructMelody(file):
+#constructs two independent lines, to be combined at the end, based on same chord progression
+def constructMelody(file, chordProgression):
+	#melody starts at predefined normal vol
+	vol = N
+	rhythm = determineMelodicRhythm #array of measures, each measure contains durations summing to TIME_SIGNATURE
+	phrases_in_song = (SONG_LENGTH-1)/ PHRASE_LENGTH
+	measureNum = 0
+	beatNum = 0
+	for measure in rhythm:
+		for duration in measure:
+			#MyMIDI.addNote(track,channel,pitch,time,duration,volume)
+			if (measureNum + beatNum) == 0: #start of song excluding pickup
 
-def constructHarmony(file):
+			#end of song
 
+			#start of phrase
+
+			#end of phrase
+
+			
+			
+
+		measureNum +=1
+
+def constructHarmony(file, chordProgression):
+	#make harmonic volume slightly lower than melody
+	harmVol = N - 5
 
 #MAIN
 if __name__ == "__main__":
@@ -288,11 +331,18 @@ def main(argv):
 		MyMIDI.addTrackNAme(track2, time, "Harmony")
 	MyMIDI.addTempo(track1,time,BPM)
 	MyMIDI.addTempo(track2,time,BPM)
-	if COMPOSE_SEPARATELY:
-		constructMelody(MyMIDI)
-		constructHarmony(MyMIDI)
+
+	if MAJORKEY:
+		chordProg = constructChordProg("maj")
 	else:
-		compose(MyMIDI)
+		chordProg = constructChordProg("min")
+
+	if COMPOSE_SEPARATELY:
+		constructMelody(MyMIDI, chordProg)
+		constructHarmony(MyMIDI, chordProg)
+	else:
+		compose(MyMIDI, chordProg)
+
 	#write to disk
 	binfile = open("out.mid", 'wb')
 	MyMIDI.writeFile(binfile)
