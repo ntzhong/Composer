@@ -90,7 +90,7 @@ def invChordRand(triad):
 	elif value < 12:
 		return inv(triad, 2) 
 	else: #between [12,15]
-		if len(traid) < 4:
+		if len(triad) < 4:
 			return triad
 		else:
 			return inv(triad, 3)
@@ -108,6 +108,10 @@ def inv(triad, n):
 def withinBeat(curBeat, beat):
 	return (curBeat >= beat) and (curBeat < beat+1)
 
+#returns true if min <= value < max. i.e. [min, max)
+def isBetween(value, minV, maxV):
+	return (minV <= value) and (value < maxV) 
+
 
 #0 = normal
 #1 = lengthy and emotional
@@ -115,33 +119,86 @@ def withinBeat(curBeat, beat):
 
 #determines the rhythm for a measure (or phrase?) maybe an array of measure arrays?
 #in comments, swing refers to .75, .25 beats in conjunction
+#rest determined later (randomly turn notes on/off). Or can intentionally place them here, w/ duration=-1
 def determineMelodicRhythm(quality):
-
+	phrases_in_song = (SONG_LENGTH-1) / 
 	rhythm = []
-	for phrase in range(0, phrases_in_song):
-		for measureNum in range(0, PHRASE_LENGTH):
-				measure = []
-				curBeat = 0
-				duration = 0
-				#an arbitrarily chosen standard style
+	for phrase in range(0, phrases_in_song): #per phrase
+		for measureNum in range(0, PHRASE_LENGTH): #per measure
+			measure = []
+			curBeat = 0 #measure= 0,1,2,3
+			duration = 0
+			duration2 = 0 #potential successive note
+			duration3 = 0
+
+			#determine rhythm of the measure with probability. Depends on location in phrase, possibly also on value of beatsLeft
+			while curBeat < TIME_SIGNATURE: #per beat
+				randVal = randint(0,20)
+
+				#Determine next rhythm, note by note
+
+				#arbitarily chosen style standard
 				if quality == 0:
-					while curBeat < TIME_SIGNATURE:
-						#determine rhythm of the measure with probability. Depends on location in phrase, possibly also on value of beatsLeft
-						if (measureNum = PHRASE_LENGTH-1): #last measure. 
-							#1st beat: extremely high chance of whole note. Chances: whole note > eigth > quarter > half > swing.
-							if (curBeat == 0):
-
-							#if 2nd beat: eigth >= quarter >= 
-							elif withinBeat(curBeat, 2):
-
-							#else high chance of half note on 3rd beat
-							#...
+					#for end of the phrase, but not the song
+					if (measureNum = PHRASE_LENGTH-1):
+						#1st beat: extremely high chance of whole note. Chances: whole note > eigth > quarter > half > swing.
+						#does not end on upbeat
+						if (curBeat == 0):
+							if isBetween(randVal, 0, 4): #whole
+								duration = 4
+							elif isBetween(randVal, 4, 10): #eighth
+								duration = 0.5
+								duration2 = 0.5
+							elif isBetween(randVal, 10, 15): #quarter
+								duration = 1
+								duration2 = 2
+							elif isBetween(randVal, 15, 18): #dotted half
+								duration = 3
+							else: #swing into end
+								duration = 0.75
+								duration2 = 0.25
+								duration3 = 2
+						elif (curBeat == 3): #4th beat. chance of 2 or 1 or no eigth-notes.
+							if isBetween(randVal, 0, 10):
+								duration = 0.5
+								duration2 = 0.5
 							else:
+								print measure
+								measure[len(measure-1)] += 0.5 #increase previous note's duration by 0.5.
+								curBeat += 0.5 #update to reflect forced change
+								duration = 0.5
+								print measure
+						else:
+							remaining_beats = TIME_SIGNATURE - 1 - curBeat
+							options = [0.5, 1, 2, 2] #higher chance of half-note if it is in 2nd beat
+							duration = options[randint(0, len(options))]
+							while duration > remaining_beats:
+								duration = options[randint(0, len(options))]
 
 
+					#for everything else, sample psuedo-randomly. swing notes only allowed in set?
+					else:
+						remaining_beats = TIME_SIGNATURE - 1 - curBeat
+						options = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 1.5, 1.5, 2, 3] #probability distribution
+						duration = options[randint(0, len(options))]
+						while duration > remaining_beats:
+							duration = options[randint(0, len(options))]
 
+				#rhythm of next note decided
+				measure.append(duration)
+				if duration2 > 0:
+					measure.append(duration2)
+				if duration3 > 0:
+					measure.append(duration3)
+				curBeat += (duration + duration2 + duration3)
 
-						#duration = duration/CHORDS_PER_MEASURE
+			#full measure established. log it
+			rhythm.append(measure)
+	#exit loop over phrases
+	#construct resolution for final measure here. 
+	measure = []
+	measure.append(4) #JUST A PLACEHOLDER
+	rhythm.append(measure)
 
 
 #returns a chord progression for entirety of song. key_quality = "maj" or "min"
@@ -173,7 +230,7 @@ def constructChordProg(key_quality):
 				elif (phrase==0) and (measure == 0) and (chord == 0): #beginning of song
 					chordProgression.append(scale[0]) #tonic, 100%
 
-				elif (phrase == phrases_in_song-1) and (measure == PHRASE_LENGTH-1) and (chord == CHORDS_PER_MEASURE-1): #end of song
+				elif (phrase == phrases_in_song-1) and (measure == PHRASE_LENGTH-1) and (chord == CHORDS_PER_MEASURE-1): #right before end of song
 					#dominant = 100%
 					chordProgression.append(scale[4])
 
