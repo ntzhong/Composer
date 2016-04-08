@@ -1,9 +1,9 @@
 #Compose
-from midiutil.MidiFile import MIDIFile
+from midiutil.MidiFile import MIDIFile #external package. For linux users: sudo apt-get install python-midiutil
 from random import randint
 
 #VALUES TO ADJUST
-COMPOSE_SEPARATELY = False #chooses to construct parts indepndently
+COMPOSE_SEPARATELY = True #chooses to construct parts indepndently
 BPM = 90 #BPM
 CHORDS_PER_MEASURE = 1 #standard is 1 or 2
 PHRASE_LENGTH = 4 #in measures
@@ -19,7 +19,7 @@ maxRange = 108 #C8 = 108, highest on piano
 
 
 #for octave changing (will need to modify to fit needs)
-OCTAVE = 0
+#OCTAVE = 0
 
 #INIT STANDARD VALUES
 OCTAVE_SIZE = 12
@@ -56,7 +56,7 @@ majScale = [tonic, second, majThird, fourth, fifth, majSixth, majSev, tonic+OCTA
 minScale = [tonic, second, minThird, fourth, fifth, minSixth, minSev, tonic+OCTAVE_SIZE]
 
 #establish rhythms. 1 = 1 beat
-durations = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 3.5, 4]
+#durations = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 3.5, 4]
 
 
 
@@ -331,8 +331,8 @@ def constructMelody(file, chordProgression):
 	measureNum = 0
 	beatNum = 0
 	note = 0
-	startNote = ROOT
-	lastNote = 0
+	baseNote = ROOT
+	lastNote = 0 #scale note
 	chordNum = 0
 	#intervals of chord changes. e.g 2 chords per measure at 4/4: new chord at beat 3
 	chordDiv = TIME_SIGNATURE/CHORDS_PER_MEASURE
@@ -376,7 +376,6 @@ def constructMelody(file, chordProgression):
 			elif (measureNum == SONG_LENGTH) and (durationIndex == len(duration)-1) 
 				note = scale[0] #w/ small chance of building a triad on this? so dominant
 
-
 			else:
 				#favor smaller intervals, with max interval being w/in octive of previous note
 				#construct new set of notes based on chord, following root scale
@@ -390,32 +389,30 @@ def constructMelody(file, chordProgression):
 					dist = [2, 1, 2, 1, 3, 1, 1, 3]
 					ntoe = sampleFromDist[cs, dist]
 
-				#other downbeats will contain dominant/tonic w/ high chance, also 3rd
-
 				#upbeats. Closer notes more likely to be played, especially if eigth notes
 				else:
-					dist = [3, 5, 5, 5, 5, 5, 2, 1]
+					dist = [3, 5, 5, 5, 5, 5, 3, 1]
 					distances = []
 					for scaleNote in cs:
 						distances.append(scaleNote-lastNote) #positive implies above
-					invDist = invertArray(distances)
+					invDist = invertArray(distances) #gather the weights for cs distribution
 					weightedDist = multiplyElems(invDist, dist)
 					note = sampleFromDist(cs, weightedDist)
 
 
 				#consecutive repeating rhythms should have relatively small variance
-				#distribution depends on last note + chord progression)
-				
-
-				
 			
+			#final edits to note
+			#chance of jumping octave, slim and depends on if prev note was eigth note?
+			#add chance of rest
+			#dynamic change based on location in phrase and prev note (if ascending and in mid of phrase, louder)
 
 			#note obtained. Bring it to octave range.
-			note = note + startNote
-			lastNote = note
-			diff = note - lastNote
+			lastNote = note #scale note
+			diff = note - lastNote #scale difference
 
 			octaves = [note-OCTAVE_SIZE, note, note+OCTAVE_SIZE]
+
 
 			if diff >= scale[5]: #6+ jump up from prev note, slight chance of lowering octave
 				octaveDist = [1, 1, 0]
@@ -425,15 +422,42 @@ def constructMelody(file, chordProgression):
 				#raise octave w/ chance
 				octaveDist = [0, 1, 1]
 				note = sampleFromDist(octaves, octaveDist)
+			else: #randomly raise or lower octave
+				dist = [1, 8, 1]
+				note = sampleFromDist(octaves, octaveDist)
 
+			realNote = note + baseNote
+
+			#regulate range:
+			if realNote <= 48:
+				#remain, or bring back up 1
+				octs = [realNote, realNote + OCTAVE_SIZE]
+				octaveDist = [1, 2]
+				tmp = sampleFromDist(octs, octaveDist)
+				if tmp > realNote:
+					baseNote += OCTAVE_SIZE
+				realNote = tmp
+			elif realNotes >= 110:
+				#remain, or bring down 1
+				octs = [realNote - OCTAVE_SIZE, realNote]
+				octaveDist = [2, 1]
+				tmp = sampleFromDist(octs, octaveDist)
+				if tmp < realNote:
+					baseNote -= OCTAVE_SIZE
+				realNote = tmp
+
+			#update baseNote to new range
+			if realNote < baseNote-2:
+				baseNote -= OCTAVE_RANGE
+			elif realNote > baseNote+OCTAVE_RANGE:
+				baseNote += OCTAVE_RANGE
+
+
+			#update values for next interation
 			beatNum += duration
 			if beatNum > chordDiv: #this only works for 2 chords in measure. abstract it further later to 4
 				curChord = chordProgression[chordNum+1]
 				chordScale = scale
-
-			#chance of jumping octave, slim and depends on if prev note was eigth note?
-			#add chance of rest
-			#dynamic change based on location in phrase and prev note (if ascending and in mid of phrase, louder)
 
 			durationIndex += 1
 		chordNum += CHORDS_PER_MEASURE
