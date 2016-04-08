@@ -365,7 +365,7 @@ def constructChordProg(key_quality):
 
 #takes in a MIDIFile object and constructs composition
 #constructs two independent lines, to be combined at the end, based on same chord progression
-def constructMelody(file, chordProgression):
+def constructMelody(file, chordProgression, track, channel):
 	#melody starts at predefined normal vol
 	vol = N
 	rhythm = determineMelodicRhythm() #array of measures, each measure contains durations summing to TIME_SIGNATURE
@@ -379,6 +379,7 @@ def constructMelody(file, chordProgression):
 	#intervals of chord changes. e.g 2 chords per measure at 4/4: new chord at beat 3
 	chordDiv = TIME_SIGNATURE/CHORDS_PER_MEASURE
 	chordScale = scale
+	time = 0
 
 	if MAJORKEY:
 		scale = majScale
@@ -495,17 +496,22 @@ def constructMelody(file, chordProgression):
 				baseNote += OCTAVE_RANGE
 
 
-			#update values for next interation
+			#update values for next iteration
 			beatNum += duration
 			if beatNum > chordDiv: #this only works for 2 chords in measure. abstract it further later to 4
 				curChord = chordProgression[chordNum+1]
 				chordScale = scale
-
 			durationIndex += 1
+
+			MyMIDI.addNote(track, channel, realNote, time, duration, vol)
+			time += duration
+
 		chordNum += CHORDS_PER_MEASURE
 		measureNum += 1
 
-def constructHarmony(file, chordProgression):
+
+#ROUGH, FOCUS ONLY ON 1 CHORD PER MEASURE FOR NOW
+def constructHarmony(file, chordProgression, track, channel):
 	#make harmonic volume slightly lower than melody
 	harmVol = N - 5
 	rhythm = determineHarmonicRhythm()
@@ -520,6 +526,7 @@ def constructHarmony(file, chordProgression):
 	#intervals of chord changes. e.g 2 chords per measure at 4/4: new chord at beat 3
 	chordDiv = TIME_SIGNATURE/CHORDS_PER_MEASURE
 	chordScale = scale
+	time = 0
 
 	if MAJORKEY:
 		scale = majScale
@@ -530,6 +537,36 @@ def constructHarmony(file, chordProgression):
 		durationIndex = 0 #track which note in measure
 		curChord = chordProgression[chordNum]
 		for duration in measure:
+			#construct new set of notes based on chord, following root scale
+			chordIndex = scale.index(chord)
+			cs = shift(scale, chordIndex) #chordScale
+			#start of phrase
+			elif (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
+
+
+			#start of measure. chord tonic
+			elif (beatNum == 0):
+				notes = [cs[0]]
+				dist = [1]
+
+			#if start of chord e.g TIME/CHORDSPERMEASURE. tonic. always
+			elif ((beatNum+1) % CHORDS_PER_MEASURE) == 0:
+				notes = [cs[0]]
+				dist = [1]
+
+			#other downbeats will contain dominant/tonic w/ high chance, also 3rd
+			elif beatNum.is_integer():
+				notes = [cs[0] cs[2], cs[4], cs[7]]
+				dist = [2, 5, 2, 1]
+
+			#upbeats:dominant, 3rd, chance of just going up 1 if prev was tonic
+			else:
+				if lastNote == cs[0]:
+					notes = [cs[2], cs[4], cs[7], lastNote+1]
+					dist = [5, 5, 2 1]
+				else:
+					notes = [cs[2], cs[4], cs[7]]
+					dist = [3, 3, 1]
 
 
 
@@ -538,11 +575,7 @@ def constructHarmony(file, chordProgression):
 
 
 
-	#downbeat of chord beginning (0, 3) def tonic.
-	if curBeat
 
-	#other downbeats will contain dominant/tonic w/ high chance, also 3rd
-	elif
 
 	#upbeats:dominant, 3rd, chance of just going up 1 if prev was tonic
 
@@ -589,8 +622,8 @@ def main(argv):
 		chordProg = constructChordProg("min")
 
 	if COMPOSE_SEPARATELY:
-		constructMelody(MyMIDI, chordProg)
-		constructHarmony(MyMIDI, chordProg)
+		constructMelody(MyMIDI, chordProg, track1, channel)
+		constructHarmony(MyMIDI, chordProg, track2, channel)
 	else:
 		compose(MyMIDI, chordProg)
 
