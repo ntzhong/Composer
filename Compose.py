@@ -515,6 +515,7 @@ def constructHarmony(file, chordProgression, track, channel):
 	#make harmonic volume slightly lower than melody
 	harmVol = N - 5
 	rhythm = determineHarmonicRhythm()
+	baseNote = ROOT - 2*OCTAVE_SIZE
 
 	phrases_in_song = (SONG_LENGTH-1)/ PHRASE_LENGTH
 	measureNum = 0
@@ -546,8 +547,8 @@ def constructHarmony(file, chordProgression, track, channel):
 
 			#start of measure. chord tonic
 			elif (beatNum == 0):
-				notes = [cs[0]]
-				dist = [1]
+				notes = [cs[0], cs[0]-OCTAVE_SIZE, cs[0] - 2*OCTAVE_SIZE]
+				dist = [3, 1, 1]
 
 			#if start of chord e.g TIME/CHORDSPERMEASURE. tonic. always
 			elif ((beatNum+1) % CHORDS_PER_MEASURE) == 0:
@@ -556,8 +557,8 @@ def constructHarmony(file, chordProgression, track, channel):
 
 			#other downbeats will contain dominant/tonic w/ high chance, also 3rd
 			elif beatNum.is_integer():
-				notes = [cs[0] cs[2], cs[4], cs[7]]
-				dist = [2, 5, 2, 1]
+				notes = [cs[0], cs[2], cs[4], cs[7], cs[2]+OCTAVE_SIZE]
+				dist = [0, 1, 2, 2, 2]
 
 			#upbeats:dominant, 3rd, chance of just going up 1 if prev was tonic
 			else:
@@ -568,13 +569,25 @@ def constructHarmony(file, chordProgression, track, channel):
 					notes = [cs[2], cs[4], cs[7]]
 					dist = [3, 3, 1]
 
+			note = sampleFromDist(notes, dist)
+			realNote = baseNote + note
 
+			lastNote = note
+			lastRealNote = realNote
+			#handling octaves. 1st in chord/measure can be 1-2 octaves lower
+			#med+octave if 2ndlast was octave+tonic
+						#update values for next iteration
+			beatNum += duration
+			if beatNum > chordDiv: #this only works for 2 chords in measure. abstract it further later to 4
+				curChord = chordProgression[chordNum+1]
+				chordScale = scale
+			durationIndex += 1
 
+			MyMIDI.addNote(track, channel, realNote, time, duration, vol)
+			time += duration
 
-
-
-
-
+		chordNum += CHORDS_PER_MEASURE
+		measureNum += 1
 
 
 	#upbeats:dominant, 3rd, chance of just going up 1 if prev was tonic
