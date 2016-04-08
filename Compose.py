@@ -24,7 +24,7 @@ maxRange = 108 #C8 = 108, highest on piano
 #INIT STANDARD VALUES
 OCTAVE_SIZE = 12
 octLocation = OCTAVE * OCTAVE_SIZE
-C4 = 48
+C4 = 60
 
 
 #Set dynamic values from 0-127
@@ -188,7 +188,7 @@ def sampleFromDist(itemArray, distribution):
 #determines the rhythm for a measure (or phrase?) maybe an array of measure arrays?
 #in comments, swing refers to .75, .25 beats in conjunction
 #rest determined later (randomly turn notes on/off). Or can intentionally place them here, w/ duration=-1
-def determineMelodicRhythm(quality):
+def determineMelodicRhythm():
 	phrases_in_song = (SONG_LENGTH-1) / 
 	rhythm = []
 	for phrase in range(0, phrases_in_song): #per phrase
@@ -264,10 +264,52 @@ def determineMelodicRhythm(quality):
 			rhythm.append(measure)
 	#exit loop over phrases
 	#construct resolution for final measure here. 
-	measure = []
-	measure.append(TIME_SIGNATURE) #standard to end on last measure
+	measure = [TIME_SIGNATURE] #standard to end on last measure
 	rhythm.append(measure)
 	return rhythm
+
+def determineHarmonicRhythm():
+	phrases_in_song = (SONG_LENGTH-1) / 
+	rhythm = []
+	for phrase in range(0, phrases_in_song): #per phrase
+		for measureNum in range(0, PHRASE_LENGTH): #per measure
+			measure = []
+			curBeat = 0 #measure= 0,1,2,3
+			duration = 0
+			duration2 = 0 #potential successive note
+			duration3 = 0
+
+			#determine rhythm of the measure with probability. Depends on location in phrase, possibly also on value of beatsLeft
+			while curBeat < TIME_SIGNATURE:
+				if curBeat == 0: #first beat higher chance of eigths
+					durs = [0.5, 1, 2]
+					dist = [10, 3, 1]
+
+				elif curBeat == 1:#2nd beat: higer chance of quarter
+					durs = [0.5, 1]
+					dist = [1, 1]
+				
+				elif curBeat.is_integer():
+					durs = [0.5, 1, 2]#if downbeat: quarter or eigth
+					dist = [10, 4/CHORDS_PER_MEASURE, 2]
+
+				#if upbeat: high chance of eigth note
+				else:
+					durs = [0.5, 1]
+					dist = [10, 2]
+
+				duration = sampleFromDist(durs, dist)
+				while duration+curBeat > TIME_SIGNATURE:
+					duration = sampleFromDist(durs, dist)
+				measure.append(duration)
+				curBeat += duration
+
+			rhythm.append(measure)
+	#last note = whole note
+	measure = [TIME_SIGNATURE]
+	rhythm.append(measure)
+	return rhythm
+
 
 
 #returns a chord progression for entirety of song. key_quality = "maj" or "min"
@@ -326,7 +368,7 @@ def constructChordProg(key_quality):
 def constructMelody(file, chordProgression):
 	#melody starts at predefined normal vol
 	vol = N
-	rhythm = determineMelodicRhythm #array of measures, each measure contains durations summing to TIME_SIGNATURE
+	rhythm = determineMelodicRhythm() #array of measures, each measure contains durations summing to TIME_SIGNATURE
 	phrases_in_song = (SONG_LENGTH-1)/ PHRASE_LENGTH
 	measureNum = 0
 	beatNum = 0
@@ -466,6 +508,35 @@ def constructMelody(file, chordProgression):
 def constructHarmony(file, chordProgression):
 	#make harmonic volume slightly lower than melody
 	harmVol = N - 5
+	rhythm = determineHarmonicRhythm()
+
+	phrases_in_song = (SONG_LENGTH-1)/ PHRASE_LENGTH
+	measureNum = 0
+	beatNum = 0
+	note = 0
+	baseNote = ROOT
+	lastNote = 0 #scale note
+	chordNum = 0
+	#intervals of chord changes. e.g 2 chords per measure at 4/4: new chord at beat 3
+	chordDiv = TIME_SIGNATURE/CHORDS_PER_MEASURE
+	chordScale = scale
+
+	if MAJORKEY:
+		scale = majScale
+	else:
+		scale = minScale
+	
+	for measure in rhythm:
+		durationIndex = 0 #track which note in measure
+		curChord = chordProgression[chordNum]
+		for duration in measure:
+
+
+
+
+
+
+
 
 	#downbeat of chord beginning (0, 3) def tonic.
 	if curBeat
