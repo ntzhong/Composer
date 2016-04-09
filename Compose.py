@@ -12,7 +12,7 @@ ROOT = 60 #Set tonic to middle C
 TIME_SIGNATURE = 4 #no compound meter. in beats per measure
 MAJORKEY = True #false => minor
 NUM_TRACKS = 2 #number of tracks. only 1 or 2 for now.
-
+QUALITY = 0
 #set range of notes
 minRange = 21 #A0 = 21, lowest on piano
 maxRange = 108 #C8 = 108, highest on piano
@@ -23,7 +23,7 @@ maxRange = 108 #C8 = 108, highest on piano
 
 #INIT STANDARD VALUES
 OCTAVE_SIZE = 12
-octLocation = OCTAVE * OCTAVE_SIZE
+#octLocation = OCTAVE * OCTAVE_SIZE
 C4 = 60
 
 
@@ -39,7 +39,7 @@ FF = 125
 #Associate midi values
 tonic = 0 #+ octInc
 second = 2 #+ octInc
-minThird 3 #+ octInc
+minThird = 3 #+ octInc
 majThird = 4 #+ octInc
 fourth = 5 #+ octInc
 fifth = 7 #+ octInc
@@ -67,7 +67,7 @@ minScale = [tonic, second, minThird, fourth, fifth, minSixth, minSev, tonic+OCTA
 #takes in a MIDI value. returns 3-elem array of midi values
 #quality = "min" or "maj"
 def constructTriad(root, quality = "maj"):
-	if quality = "maj":
+	if quality == "maj":
 		return constructMajTriad(root)
 	else:
 		return constructMinTriad(root)
@@ -146,7 +146,10 @@ def multiplyElems(a, b):
 def invertArray(array):
 	newArray = []
 	for value in array:
-		newArray.append(1/value)
+		if (value != 0):
+			newArray.append(1/value)
+		else:
+			 newArray.append(value)
 	return newArray
 
 
@@ -154,23 +157,28 @@ def invertArray(array):
 #note that distrubtion does not have to be normalized
 def sampleFromDist(itemArray, distribution):
 	#take cumulative sum
-	cumDist = []
-	total = 0
-	i = 0
-	for p in distribution:
-		total += p
-		cumDist[i] = total
-		i += 1
+	if len(itemArray) == len(distribution):
+		cumDist = []
+		total = 0
+		i = 0
+		for p in distribution:
+			total += p
+			cumDist.append(total)
+			i += 1
 
-	#sample	and compare probability buckets
-	sample = random.randint(0, total)
-	i = 0
-	for cumP in cumDist:
-		if (sample <= cumP):
-			return itemArray[i]
-		i += 1
+		#sample	and compare probability buckets
+		sample = randint(0, total)
+		i = 0
+		for cumP in cumDist:
+			if (sample <= cumP):
+				return itemArray[i]
+			i += 1
 
-	print("distribution selection error")
+		print("distribution selection error")
+	else:
+		print ("array indices don't match up")
+		print itemArray
+		print distribution
 
 
 
@@ -189,7 +197,7 @@ def sampleFromDist(itemArray, distribution):
 #in comments, swing refers to .75, .25 beats in conjunction
 #rest determined later (randomly turn notes on/off). Or can intentionally place them here, w/ duration=-1
 def determineMelodicRhythm():
-	phrases_in_song = (SONG_LENGTH-1) / 
+	phrases_in_song = (SONG_LENGTH-1) / PHRASE_LENGTH
 	rhythm = []
 	for phrase in range(0, phrases_in_song): #per phrase
 		for measureNum in range(0, PHRASE_LENGTH): #per measure
@@ -206,9 +214,9 @@ def determineMelodicRhythm():
 				#Determine next rhythm, note by note
 
 				#arbitarily chosen style standard
-				if quality == 0:
+				if QUALITY == 0:
 					#for end of the phrase, but not the song
-					if (measureNum = PHRASE_LENGTH-1):
+					if (measureNum == PHRASE_LENGTH-1):
 						#1st beat: extremely high chance of whole note. Chances: whole note > eigth > quarter > half > swing.
 						#does not end on upbeat
 						if (curBeat == 0):
@@ -230,27 +238,33 @@ def determineMelodicRhythm():
 							if isBetween(randVal, 0, 10):
 								duration = 0.5
 								duration2 = 0.5
+								
 							else:
-								print measure
-								measure[len(measure-1)] += 0.5 #increase previous note's duration by 0.5.
+								 #increase previous note's duration by 0.5.
+								tmp = measure.pop()
+								measure.append(tmp+0.5)
 								curBeat += 0.5 #update to reflect forced change
 								duration = 0.5
-								print measure
+								
 						else:
-							remaining_beats = TIME_SIGNATURE - 1 - curBeat
-							options = [0.5, 1, 2, 2] #higher chance of half-note if it is in 2nd beat
-							duration = options[randint(0, len(options))]
+							remaining_beats = TIME_SIGNATURE - curBeat
+							 #higher chance of half-note if it is in 2nd beat
+							options = [0.5, 1, 2]
+							dist = [1, 1, 2]
+							duration = sampleFromDist(options, dist)
 							while duration > remaining_beats:
-								duration = options[randint(0, len(options))]
+								duration = sampleFromDist(options, dist)
 
 
 					#for everything else, sample psuedo-randomly. swing notes only allowed in set?
 					else:
-						remaining_beats = TIME_SIGNATURE - 1 - curBeat
-						options = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 1.5, 1.5, 2, 3] #probability distribution
-						duration = options[randint(0, len(options))]
+						remaining_beats = TIME_SIGNATURE - curBeat
+						options = [0.5, 1, 1.5, 2, 3]
+						dist = [6, 3, 2, 1, 1]
+						duration = sampleFromDist(options, dist)
 						while duration > remaining_beats:
-							duration = options[randint(0, len(options))]
+							
+							duration = options[randint(0, len(options))-1]
 
 				#rhythm of next note decided
 				measure.append(duration)
@@ -269,7 +283,7 @@ def determineMelodicRhythm():
 	return rhythm
 
 def determineHarmonicRhythm():
-	phrases_in_song = (SONG_LENGTH-1) / 
+	phrases_in_song = (SONG_LENGTH-1) / PHRASE_LENGTH
 	rhythm = []
 	for phrase in range(0, phrases_in_song): #per phrase
 		for measureNum in range(0, PHRASE_LENGTH): #per measure
@@ -321,10 +335,10 @@ def constructChordProg(key_quality):
 		scale = minScale
 
 	#Sets scale to octave range of root
-	scale = [x+root for x in scale]
+	#scale = [x+ROOT for x in scale]
 	phrases_in_song = (SONG_LENGTH-1)/PHRASE_LENGTH
 	
-	chordProgression[]
+	chordProgression = []
 	for phrase in range(0, phrases_in_song):
 		for measure in range(0,PHRASE_LENGTH):
 			for chord in range(0, CHORDS_PER_MEASURE):
@@ -342,22 +356,25 @@ def constructChordProg(key_quality):
 					#80% tonic, 20% relative minor
 					notes = [scale[0], scale[5]]
 					dist = [8, 2]
-					sampleFromDist(notes, dist)
+					chord = sampleFromDist(notes, dist)
+					chordProgression.append(chord)
 
 				elif (measure == PHRASE_LENGTH-1): #end of phrase. high chance of dominant. can also be 4
 					#dominant 85%
 					#subDom = 10%
 					notes = [scale[3], scale[4]]
 					dist = [1, 9]
-					sampleFromDist(notes, dist)
+					chord = sampleFromDist(notes, dist)
+					chordProgression.append(chord)
 
 				else: #probability. depends on previous, and like 1% chance of being tonic.
-					options = [scale[0], scale[2], scale[3], scale[4], scale[5]]
-					chordProgression.append(randint(0, len(options)))
+					notes = [scale[0], scale[2], scale[3], scale[4], scale[5]]
+					dist = [1, 1, 1, 1, 1]
+					chord = sampleFromDist(notes, dist)
+					chordProgression.append(chord)
 
 	for i in range (0, CHORDS_PER_MEASURE):
 		chordProgression.append(scale[0]) #Resolve final measure w/ tonic
-
 	return chordProgression
 
 
@@ -367,28 +384,31 @@ def constructChordProg(key_quality):
 #constructs two independent lines, to be combined at the end, based on same chord progression
 def constructMelody(file, chordProgression, track, channel):
 	#melody starts at predefined normal vol
+	print "constructing melody"
 	vol = N
 	rhythm = determineMelodicRhythm() #array of measures, each measure contains durations summing to TIME_SIGNATURE
+	print "melodic rhythm determined"
 	phrases_in_song = (SONG_LENGTH-1)/ PHRASE_LENGTH
 	measureNum = 0
-	beatNum = 0
+	beatNum = 0.0
 	note = 0
 	baseNote = ROOT
 	lastNote = 0 #scale note
 	chordNum = 0
 	#intervals of chord changes. e.g 2 chords per measure at 4/4: new chord at beat 3
 	chordDiv = TIME_SIGNATURE/CHORDS_PER_MEASURE
-	chordScale = scale
 	time = 0
 
 	if MAJORKEY:
 		scale = majScale
 	else:
 		scale = minScale
-	
+
+	cs = scale
 	for measure in rhythm:
 		durationIndex = 0 #track which note in measure
 		curChord = chordProgression[chordNum]
+		beatNum = 0.0
 		for duration in measure:
 			#MyMIDI.addNote(track,channel,pitch,time,duration,volume)
 			if (measureNum + beatNum) == 0: #start of song excluding pickup
@@ -397,7 +417,7 @@ def constructMelody(file, chordProgression, track, channel):
 				note = sampleFromDist(scale, dist)
 
 			#2nd to last measure of song (where the dominant chord is)
-			elif (measureNum == len(rhythm-1)):
+			elif (measureNum == len(rhythm)-1):
 				pass
 
 			#start of phrase
@@ -410,27 +430,28 @@ def constructMelody(file, chordProgression, track, channel):
 				pass
 
 			#2nd to last note in song, force to be supertonic or leading
-			elif (measureNum == SONG_LENGTH-1) and (durationIndex = len(duration)-1):
+			elif (measureNum == SONG_LENGTH-1) and (durationIndex == len(duration)-1):
 				notes = [scale[1], scale[6]] #supertonic or leading
 				dist = [2, 1]
 				note = sampleFromDist(notes, dist)
 			
 			#Last note in song. (remember extra appended measure)
-			elif (measureNum == SONG_LENGTH) and (durationIndex == len(duration)-1) 
+			elif (measureNum == SONG_LENGTH) and (durationIndex == len(duration)-1):
 				note = scale[0] #w/ small chance of building a triad on this? so dominant
 
 			else:
 				#favor smaller intervals, with max interval being w/in octive of previous note
 				#construct new set of notes based on chord, following root scale
-				chordIndex = scale.index(chord)
+
+				chordIndex = scale.index(curChord)
 				cs = shift(scale, chordIndex) #chordScale
 				#downbeat of chord beginning (0, 3) (1,3,4-low,5, 6-low, 7-low)
-				if (curBeat == 0) #first beat
+				if (beatNum == 0): #first beat
 					dist = [5, 2, 7, 4, 7, 5, 3, 0]
-					note = sampleFromDist[cs, dist]
-				elif curBeat.is_integer(): #all downbeats in general. #lower chance of tonic if not 1st note in measure
+					note = sampleFromDist(cs, dist)
+				elif beatNum.is_integer(): #all downbeats in general. #lower chance of tonic if not 1st note in measure
 					dist = [2, 1, 2, 1, 3, 1, 1, 3]
-					ntoe = sampleFromDist[cs, dist]
+					ntoe = sampleFromDist(cs, dist)
 
 				#upbeats. Closer notes more likely to be played, especially if eigth notes
 				else:
@@ -466,7 +487,7 @@ def constructMelody(file, chordProgression, track, channel):
 				octaveDist = [0, 1, 1]
 				note = sampleFromDist(octaves, octaveDist)
 			else: #randomly raise or lower octave
-				dist = [1, 8, 1]
+				octaveDist = [1, 8, 1]
 				note = sampleFromDist(octaves, octaveDist)
 
 			realNote = note + baseNote
@@ -480,7 +501,7 @@ def constructMelody(file, chordProgression, track, channel):
 				if tmp > realNote:
 					baseNote += OCTAVE_SIZE
 				realNote = tmp
-			elif realNotes >= 110:
+			elif realNote >= 110:
 				#remain, or bring down 1
 				octs = [realNote - OCTAVE_SIZE, realNote]
 				octaveDist = [2, 1]
@@ -491,19 +512,19 @@ def constructMelody(file, chordProgression, track, channel):
 
 			#update baseNote to new range
 			if realNote < baseNote-2:
-				baseNote -= OCTAVE_RANGE
-			elif realNote > baseNote+OCTAVE_RANGE:
-				baseNote += OCTAVE_RANGE
+				baseNote -= OCTAVE_SIZE
+			elif realNote > baseNote+OCTAVE_SIZE:
+				baseNote += OCTAVE_SIZE
 
 
 			#update values for next iteration
 			beatNum += duration
-			if beatNum > chordDiv: #this only works for 2 chords in measure. abstract it further later to 4
+			if (beatNum > chordDiv) and (beatNum < TIME_SIGNATURE): #this only works for 2 chords in measure. abstract it further later to 4
 				curChord = chordProgression[chordNum+1]
-				chordScale = scale
+				cs = scale
 			durationIndex += 1
 
-			MyMIDI.addNote(track, channel, realNote, time, duration, vol)
+			file.addNote(track, channel, realNote, time, duration, vol)
 			time += duration
 
 		chordNum += CHORDS_PER_MEASURE
@@ -542,7 +563,8 @@ def constructHarmony(file, chordProgression, track, channel):
 			chordIndex = scale.index(chord)
 			cs = shift(scale, chordIndex) #chordScale
 			#start of phrase
-			elif (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
+			if (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
+				pass
 
 
 			#start of measure. chord tonic
@@ -564,7 +586,7 @@ def constructHarmony(file, chordProgression, track, channel):
 			else:
 				if lastNote == cs[0]:
 					notes = [cs[2], cs[4], cs[7], lastNote+1]
-					dist = [5, 5, 2 1]
+					dist = [5, 5, 2, 1]
 				else:
 					notes = [cs[2], cs[4], cs[7]]
 					dist = [3, 3, 1]
@@ -583,7 +605,7 @@ def constructHarmony(file, chordProgression, track, channel):
 				chordScale = scale
 			durationIndex += 1
 
-			MyMIDI.addNote(track, channel, realNote, time, duration, vol)
+			file.addNote(track, channel, realNote, time, duration, vol)
 			time += duration
 
 		chordNum += CHORDS_PER_MEASURE
@@ -599,8 +621,7 @@ def constructHarmony(file, chordProgression, track, channel):
 	#file is a MIDIFile object. chordProgression is an array of base values
 def compose(file, chordProgression):
 	vol = N
-	harmVol = vol-5
-	
+	harmVol = vol-5	
 	pass
 
 
@@ -611,11 +632,9 @@ def compose(file, chordProgression):
 #### MAIN ####
 ##############
 
-if __name__ == "__main__":
-	main(sys.argv)
-
 #Main function. Can decide to take arugments
-def main(argv):
+#def main(argv)
+def main():
 	#Def tracks
 	track1 = 0 #melody
 	track2 = 1 #harmony
@@ -625,7 +644,7 @@ def main(argv):
 	# Init track(s). Add track name and tempo.
 	MyMIDI.addTrackName(track1,time,"Melody")
 	if NUM_TRACKS == 2:
-		MyMIDI.addTrackNAme(track2, time, "Harmony")
+		MyMIDI.addTrackName(track2, time, "Harmony")
 	MyMIDI.addTempo(track1,time,BPM)
 	MyMIDI.addTempo(track2,time,BPM)
 
@@ -634,6 +653,7 @@ def main(argv):
 	else:
 		chordProg = constructChordProg("min")
 
+	print "constructed chord progression"
 	if COMPOSE_SEPARATELY:
 		constructMelody(MyMIDI, chordProg, track1, channel)
 		constructHarmony(MyMIDI, chordProg, track2, channel)
@@ -645,13 +665,6 @@ def main(argv):
 	MyMIDI.writeFile(binfile)
 	binfile.close()
 
-# Now add the note. 
-MyMIDI.addNote(track,channel,pitch,time,duration,volume)
-MyMIDI.addNote(track,channel,pitch,time+duration,duration,volume+5)
-MyMIDI.addNote(track,channel,pitch,time+2*duration,duration,volume-25)
-MyMIDI.addNote(track,channel,pitch,time+3*duration,duration,volume+25)
-
-
-
-
-
+if __name__ == "__main__":
+	main()
+	#main(sys.argv)
