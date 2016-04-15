@@ -2,13 +2,15 @@
 from midiutil.MidiFile import MIDIFile #external package. For linux users: sudo apt-get install python-midiutil
 from random import randint
 
+#import pdb; pdb.set_trace() <- To debug: place this at breakpoints
+
 #VALUES TO ADJUST
 COMPOSE_SEPARATELY = True #chooses to construct parts indepndently
 BPM = 90 #BPM
 CHORDS_PER_MEASURE = 1 #standard is 1 or 2
 PHRASE_LENGTH = 4 #in measures
 SONG_LENGTH = PHRASE_LENGTH * 4 + 1 #in measures. +1 for resolution measure?
-ROOT = 60 #Set tonic to middle C
+ROOT = 68 #Set tonic to middle C
 TIME_SIGNATURE = 4 #no compound meter. in beats per measure
 MAJORKEY = True #false => minor
 NUM_TRACKS = 2 #number of tracks. only 1 or 2 for now.
@@ -159,7 +161,9 @@ def invertArray(array):
 #note that distrubtion does not have to be normalized
 def sampleFromDist(itemArray, distribution):
 	#take cumulative sum
-	if len(itemArray) == len(distribution):
+	if (len(itemArray) == 1 and len(distribution) == 1):
+		return itemArray[0]
+	elif len(itemArray) == len(distribution):
 		cumDist = []
 		total = 0
 		for p in distribution:
@@ -199,20 +203,17 @@ def sampleFromDist(itemArray, distribution):
 def determineMelodicRhythm():
 	phrases_in_song = (SONG_LENGTH-1) / PHRASE_LENGTH
 	rhythm = []
+	lastBeat = TIME_SIGNATURE-1
 	for phrase in range(0, phrases_in_song): #per phrase
 		for measureNum in range(0, PHRASE_LENGTH): #per measure
 			measure = []
 			curBeat = 0 #measure= 0,1,2,3
-			duration = 0
-			duration2 = 0 #potential successive note
-			duration3 = 0
-
 			#determine rhythm of the measure with probability. Depends on location in phrase, possibly also on value of beatsLeft
 			while curBeat < TIME_SIGNATURE: #per beat
-				randVal = randint(0,20)
-
+				duration = 0
+				duration2 = 0 #potential successive notes
+				duration3 = 0
 				#Determine next rhythm, note by note
-
 				#arbitarily chosen style standard
 				if QUALITY == 0:
 					#for end of the phrase, but not the song
@@ -220,32 +221,27 @@ def determineMelodicRhythm():
 						#1st beat: extremely high chance of whole note. Chances: whole note > eigth > quarter > half > swing.
 						#does not end on upbeat
 						if (curBeat == 0):
-							if isBetween(randVal, 0, 4): #whole
-								duration = 4
-							elif isBetween(randVal, 4, 10): #eighth
-								duration = 0.5
+							durations = [0.5, 1, 2, 3, 3.5, 4]
+							dist = [1, 2, 1, 4, 4, 2]
+							duration = sampleFromDist(durations, dist)
+							#conditionals, certaing values should be followed
+							if (duration == 3): #two eigth notes to bridge into next phrase
+								duration2 = duration3 = 0.5
+							elif (duration == 3.5):
 								duration2 = 0.5
-							elif isBetween(randVal, 10, 15): #quarter
-								duration = 1
-								duration2 = 2
-							elif isBetween(randVal, 15, 18): #dotted half
-								duration = 3
-							else: #swing into end
-								duration = 0.75
+							elif (duration == 0.5): #meh
+								duration2 = 0.5
+							elif (duration == 1):
+								duration2 = 2 #also meh
+
+						elif (curBeat == lastBeat): #4th beat. chance of 2 or 1 or no eigth-notes.
+							durations = [0.5, 0.75, 1]
+							dist = [5, 5, 5]
+							duration = sampleFromDist(durations, dist)
+							if (duration == 0.5):
+								duration2 = 0.5
+							elif (duration == 0.75):
 								duration2 = 0.25
-								duration3 = 2
-						elif (curBeat == 3): #4th beat. chance of 2 or 1 or no eigth-notes.
-							if isBetween(randVal, 0, 10):
-								duration = 0.5
-								duration2 = 0.5
-								
-							else:
-								 #increase previous note's duration by 0.5.
-								tmp = measure.pop()
-								measure.append(tmp+0.5)
-								curBeat += 0.5 #update to reflect forced change
-								duration = 0.5
-								
 						else:
 							remaining_beats = TIME_SIGNATURE - curBeat
 							 #higher chance of half-note if it is in 2nd beat
@@ -255,17 +251,26 @@ def determineMelodicRhythm():
 							while duration > remaining_beats:
 								duration = sampleFromDist(options, dist)
 
+					elif (curBeat == lastBeat): #last beat in normal measure. swings to bridge into next measure
+						durations = [0.5, 0.75, 1]
+						dist = [5, 5, 5]
+						duration = sampleFromDist(durations, dist)
+						if (durations == 0.5):
+							duration2 = 0.5
+						elif (durations == 0.75):
+							duration2 = 0.25
 
-					#for everything else, sample psuedo-randomly. swing notes only allowed in set?
-					else:
+					else: #for everything else, sample psuedo-randomly. swing notes only allowed in set?
 						remaining_beats = TIME_SIGNATURE - curBeat
-						options = [0.5, 1, 1.5, 2, 3]
-						dist = [6, 3, 2, 1, 1]
+						options = [0.25, 0.5, 1, 1.5, 2, 3]
+						dist = [-1, 6, 3, 2, 1, 1]
 						duration = sampleFromDist(options, dist)
 						while duration > remaining_beats:
-							
-							duration = options[randint(0, len(options))-1]
-
+							if (len(options) > 1):
+								index = options.index(duration) #narrow down choices
+								options.pop(index)
+								dist.pop(index)
+							duration = sampleFromDist(options, dist)
 				#rhythm of next note decided
 				measure.append(duration)
 				if duration2 > 0:
@@ -273,8 +278,8 @@ def determineMelodicRhythm():
 				if duration3 > 0:
 					measure.append(duration3)
 				curBeat += (duration + duration2 + duration3)
-
 			#full measure established. log it
+
 			rhythm.append(measure)
 	#exit loop over phrases
 	#construct resolution for final measure here. 
@@ -456,7 +461,6 @@ def constructMelody(file, chordProgression, track, channel):
 
 				#upbeats. Closer notes more likely to be played, especially if eigth notes
 				else:
-					#import pdb; pdb.set_trace()
 					dist = [3, 5, 5, 5, 5, 5, 3, 1]
 					distances = []
 					for scaleNote in cs:
@@ -537,7 +541,7 @@ def constructMelody(file, chordProgression, track, channel):
 #ROUGH, FOCUS ONLY ON 1 CHORD PER MEASURE FOR NOW
 def constructHarmony(file, chordProgression, track, channel):
 	#make harmonic volume slightly lower than melody
-	harmVol = N - 5
+	harmVol = N - 15
 	rhythm = determineHarmonicRhythm()
 	baseNote = ROOT - 2*OCTAVE_SIZE
 
@@ -655,7 +659,7 @@ def main():
 		chordProg = constructChordProg("maj")
 	else:
 		chordProg = constructChordProg("min")
-		
+
 	if COMPOSE_SEPARATELY:
 		constructMelody(MyMIDI, chordProg, track1, channel)
 		constructHarmony(MyMIDI, chordProg, track2, channel)
