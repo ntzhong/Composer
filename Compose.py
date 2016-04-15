@@ -138,18 +138,20 @@ def shift(array, n):
 #performs element-wise multiplication between 2 arrays
 def multiplyElems(a, b):
 	newArray = []
-	for i in range(0, len(a)-1):
+	for i in range(0, len(a)):
 		newArray.append(a[i]*b[i])
 	return newArray
 
 #returns array of reciprocals
 def invertArray(array):
+
 	newArray = []
 	for value in array:
+		#import pdb; pdb.set_trace()
 		if (value != 0):
-			newArray.append(1/value)
+			newArray.append(1.0/value)
 		else:
-			 newArray.append(value)
+			newArray.append(value)
 	return newArray
 
 
@@ -160,11 +162,9 @@ def sampleFromDist(itemArray, distribution):
 	if len(itemArray) == len(distribution):
 		cumDist = []
 		total = 0
-		i = 0
 		for p in distribution:
 			total += p
 			cumDist.append(total)
-			i += 1
 
 		#sample	and compare probability buckets
 		sample = randint(0, total)
@@ -288,10 +288,10 @@ def determineHarmonicRhythm():
 	for phrase in range(0, phrases_in_song): #per phrase
 		for measureNum in range(0, PHRASE_LENGTH): #per measure
 			measure = []
-			curBeat = 0 #measure= 0,1,2,3
-			duration = 0
-			duration2 = 0 #potential successive note
-			duration3 = 0
+			curBeat = 0.0 #measure= 0,1,2,3
+			duration = 0.0
+			duration2 = 0.0 #potential successive note
+			duration3 = 0.0
 
 			#determine rhythm of the measure with probability. Depends on location in phrase, possibly also on value of beatsLeft
 			while curBeat < TIME_SIGNATURE:
@@ -322,6 +322,7 @@ def determineHarmonicRhythm():
 	#last note = whole note
 	measure = [TIME_SIGNATURE]
 	rhythm.append(measure)
+	print "harmonic rhythm determined"
 	return rhythm
 
 
@@ -417,8 +418,8 @@ def constructMelody(file, chordProgression, track, channel):
 				note = sampleFromDist(scale, dist)
 
 			#2nd to last measure of song (where the dominant chord is)
-			elif (measureNum == len(rhythm)-1):
-				pass
+			#elif (measureNum == len(rhythm)-1):
+			#	pass
 
 			#start of phrase
 			elif (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
@@ -426,8 +427,8 @@ def constructMelody(file, chordProgression, track, channel):
 				note = sampleFromDist(scale, dist)
 
 			#last measure of phrase
-			elif ((measureNum+1)%(PHRASE_LENGTH) == 0):
-				pass
+			#elif ((measureNum+1)%(PHRASE_LENGTH) == 0):
+			#	pass
 
 			#2nd to last note in song, force to be supertonic or leading
 			elif (measureNum == SONG_LENGTH-1) and (durationIndex == len(duration)-1):
@@ -455,14 +456,16 @@ def constructMelody(file, chordProgression, track, channel):
 
 				#upbeats. Closer notes more likely to be played, especially if eigth notes
 				else:
+					#import pdb; pdb.set_trace()
 					dist = [3, 5, 5, 5, 5, 5, 3, 1]
 					distances = []
 					for scaleNote in cs:
 						distances.append(scaleNote-lastNote) #positive implies above
 					invDist = invertArray(distances) #gather the weights for cs distribution
 					weightedDist = multiplyElems(invDist, dist)
+					#need to convert dist into ints
+					weightedDist = [int(i*10) for i in weightedDist]
 					note = sampleFromDist(cs, weightedDist)
-
 
 				#consecutive repeating rhythms should have relatively small variance
 			
@@ -472,8 +475,8 @@ def constructMelody(file, chordProgression, track, channel):
 			#dynamic change based on location in phrase and prev note (if ascending and in mid of phrase, louder)
 
 			#note obtained. Bring it to octave range.
-			lastNote = note #scale note
 			diff = note - lastNote #scale difference
+			lasteNote = note
 
 			octaves = [note-OCTAVE_SIZE, note, note+OCTAVE_SIZE]
 
@@ -547,28 +550,28 @@ def constructHarmony(file, chordProgression, track, channel):
 	chordNum = 0
 	#intervals of chord changes. e.g 2 chords per measure at 4/4: new chord at beat 3
 	chordDiv = TIME_SIGNATURE/CHORDS_PER_MEASURE
-	chordScale = scale
 	time = 0
 
 	if MAJORKEY:
 		scale = majScale
 	else:
 		scale = minScale
-	
+	chordScale = scale
 	for measure in rhythm:
 		durationIndex = 0 #track which note in measure
 		curChord = chordProgression[chordNum]
 		for duration in measure:
 			#construct new set of notes based on chord, following root scale
-			chordIndex = scale.index(chord)
+			chordIndex = scale.index(curChord)
 			cs = shift(scale, chordIndex) #chordScale
 			#start of phrase
-			if (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
-				pass
+			
+			#if (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
+			#	pass
 
 
 			#start of measure. chord tonic
-			elif (beatNum == 0):
+			if (beatNum == 0):
 				notes = [cs[0], cs[0]-OCTAVE_SIZE, cs[0] - 2*OCTAVE_SIZE]
 				dist = [3, 1, 1]
 
@@ -605,7 +608,7 @@ def constructHarmony(file, chordProgression, track, channel):
 				chordScale = scale
 			durationIndex += 1
 
-			file.addNote(track, channel, realNote, time, duration, vol)
+			file.addNote(track, channel, realNote, time, duration, harmVol)
 			time += duration
 
 		chordNum += CHORDS_PER_MEASURE
