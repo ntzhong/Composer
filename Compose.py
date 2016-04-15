@@ -385,7 +385,7 @@ def constructChordProg(key_quality):
 #constructs two independent lines, to be combined at the end, based on same chord progression
 def constructMelody(file, chordProgression, track, channel):
 	#melody starts at predefined normal vol
-	print "constructing melody"
+	print "constructing melody..."
 	vol = N
 	rhythm = determineMelodicRhythm() #array of measures, each measure contains durations summing to TIME_SIGNATURE
 	print "melodic rhythm determined"
@@ -603,7 +603,7 @@ def constructHarmony(file, chordProgression, track, channel):
 			#med+octave if 2ndlast was octave+tonic
 						#update values for next iteration
 			beatNum += duration
-			if beatNum > chordDiv: #this only works for 2 chords in measure. abstract it further later to 4
+			if (beatNum > chordDiv) and (len(chordProgression)-1 > chordNum): #this only works for 2 chords in measure. abstract it further later to 4
 				curChord = chordProgression[chordNum+1]
 				chordScale = scale
 			durationIndex += 1
@@ -650,23 +650,23 @@ def main():
 		MyMIDI.addTrackName(track2, time, "Harmony")
 	MyMIDI.addTempo(track1,time,BPM)
 	MyMIDI.addTempo(track2,time,BPM)
-
+	print "constructing chord progression..."
 	if MAJORKEY:
 		chordProg = constructChordProg("maj")
 	else:
 		chordProg = constructChordProg("min")
-
-	print "constructed chord progression"
+		
 	if COMPOSE_SEPARATELY:
 		constructMelody(MyMIDI, chordProg, track1, channel)
 		constructHarmony(MyMIDI, chordProg, track2, channel)
 	else:
 		compose(MyMIDI, chordProg)
-
+	print "writing to disk..."	
 	#write to disk
 	binfile = open("out.mid", 'wb')
 	MyMIDI.writeFile(binfile)
 	binfile.close()
+	print "Done!"
 
 if __name__ == "__main__":
 	main()
