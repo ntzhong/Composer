@@ -96,7 +96,6 @@ def invertArray(array):
 			newArray.append(value)
 	return newArray
 
-
 #takes array of items, with an associated distribution array, and returns an item based on distribution
 #note that distrubtion does not have to be normalized
 def sampleFromDist(itemArray, distribution):
@@ -123,6 +122,11 @@ def sampleFromDist(itemArray, distribution):
 		print ("array indices don't match up")
 		print itemArray
 		print distribution
+
+def coinFlip(a, b): #returns true with chance a, false w/ chance b
+	choices = [0, 1]
+	dist = [a, b]
+	return sampleFromDist(choices, dist)
 
 
 
@@ -230,34 +234,23 @@ def determineMelodicRhythm():
 	for phrase in range(0, phrases_in_song): #per phrase
 		for measureNum in range(0, PHRASE_LENGTH): #per measure
 			measure = []
-			curBeat = 0 #measure= 0,1,2,3
+			curBeat = 0.0 #measure= 0,1,2,3
 			#determine rhythm of the measure with probability. Depends on location in phrase, possibly also on value of beatsLeft
 			while curBeat < TIME_SIGNATURE: #per beat
-				duration = 0
-				duration2 = 0 #potential successive notes
-				duration3 = 0
+				duration = 0.0
+				duration2 = 0.0 #potential successive notes
+				duration3 = 0.0
 				#Determine next rhythm, note by note
 				#arbitarily chosen style standard
 				if QUALITY == 0:
 					#for end of the phrase, but not the song
+					randomChance = [0, 1]
+					randDist = [9, 1]
+					chance = sampleFromDist(randomChance, randDist)
 					if (measureNum == PHRASE_LENGTH-1):
 						#1st beat: extremely high chance of whole note. Chances: whole note > eigth > quarter > half > swing.
 						#does not end on upbeat
-						randomChance = [0, 1]
-						dist = [9, 1]
-						chance = sampleFromDist(randomChance, dist)
-						if (chance) and curBeat.is_integer():
-							chance2 = sampleFromDist(randomChance, [1, 1])
-							if chance2:
-								duration = 0.25
-								duration2 = 0.25
-								duration3 = 0.75
-							else:
-								duration = 0.75
-								duration2 = 0.25
-								duration3 = 0.25
-
-						elif (curBeat == 0):
+						if (curBeat == 0):
 							durations = [0.5, 1, 2, 3, 3.5, 4]
 							dist = [1, 2, 1, 4, 4, 2]
 							duration = sampleFromDist(durations, dist)
@@ -287,6 +280,18 @@ def determineMelodicRhythm():
 							duration = sampleFromDist(options, dist)
 							while duration > remaining_beats:
 								duration = sampleFromDist(options, dist)
+
+
+					elif (chance) and curBeat.is_integer():
+						chance2 = sampleFromDist(randomChance, [1, 1])
+						if chance2:
+							duration = 0.25
+							duration2 = 0.25
+							duration3 = 0.5
+						else:
+							duration = 0.5
+							duration2 = 0.25
+							duration3 = 0.25
 
 					elif (curBeat == lastBeat): #last beat in normal measure. swings to bridge into next measure
 						durations = [0.5, 0.75, 1]
@@ -366,7 +371,7 @@ def determineHarmonicRhythm(): #ONLY FOR TIME SIGNATURE = 4
 				elif curBeat == 1:#2nd beat: higer chance of quarter
 					durs = [0.5, 1]
 					dist = [1, 1]
-				
+				#other downbeats
 				elif curBeat.is_integer():
 					durs = [0.5, 1, 2]#if downbeat: quarter or eigth
 					dist = [10, 4/CHORDS_PER_MEASURE, 2]
@@ -387,6 +392,7 @@ def determineHarmonicRhythm(): #ONLY FOR TIME SIGNATURE = 4
 	measure = [TIME_SIGNATURE]
 	rhythm.append(measure)
 	print "harmonic rhythm determined"
+	#print rhythm
 	return rhythm
 
 
@@ -476,34 +482,31 @@ def constructMelody(file, chordProgression, track, channel):
 				#emphasis on 1, 3, 5
 				dist = [10, 1, 8, 5, 9, 5, 5, 1]
 				note = sampleFromDist(scale, dist)
-
-			#2nd to last measure of song (where the dominant chord is)
-			#elif (measureNum == len(rhythm)-1):
-			#	pass
-
+			#very last measure
+			if (measureNum == len(rhythm)-1):
+				note = scale[0]
 			#start of phrase
-			elif ((measureNum+1)%(PHRASE_LENGTH) == 0) and (beatNum == 0):
+			elif ((measureNum % PHRASE_LENGTH) == 0) and (beatNum == 0):
 				dist = [10, 1, 8, 5, 9, 5, 5, 1]
 				note = sampleFromDist(scale, dist)
 
-			#last measure of phrase
-			#elif ((measureNum+1)%(PHRASE_LENGTH) == 0):
-			#	pass
-
 			#2nd to last note in song, force to be supertonic or leading
-			elif (measureNum == SONG_LENGTH-1) and (durationIndex == len(duration)-1):
+			elif (measureNum == SONG_LENGTH-1) and (durationIndex == len(measure)-1):
 				notes = [scale[1], scale[6]] #supertonic or leading
-				dist = [2, 1]
+				dist = [1, 1]
 				note = sampleFromDist(notes, dist)
-			
-			#Last note in song. (remember extra appended measure)
-			elif (measureNum == SONG_LENGTH) and (durationIndex == len(duration)-1):
-				note = scale[0] #w/ small chance of building a triad on this? so dominant
+
+			#last measure of phrase. last note should be leading/supertonic of next chord
+			elif ((measureNum)%PHRASE_LENGTH == 3) and (beatNum >= 3) and (coinFlip(1, 3)):#last measure
+				nextChord = chordProgression[chordNum+1]
+				nextScale = shift(scale, nextChord)
+				notes = [nextScale[1], nextScale[6]]
+				dist = [1, 1]
+				note = sampleFromDist(notes, dist)				
 
 			else:
 				#favor smaller intervals, with max interval being w/in octive of previous note
 				#construct new set of notes based on chord, following root scale
-
 				chordIndex = scale.index(curChord)
 				cs = shift(scale, chordIndex) #chordScale
 				#downbeat of chord beginning (0, 3) (1,3,4-low,5, 6-low, 7-low)
@@ -511,31 +514,31 @@ def constructMelody(file, chordProgression, track, channel):
 					dist = [5, 2, 7, 4, 7, 5, 3, 0]
 					note = sampleFromDist(cs, dist)
 				elif beatNum.is_integer(): #all downbeats in general. #lower chance of tonic if not 1st note in measure
-					dist = [2, 1, 2, 1, 3, 1, 1, 3]
-					ntoe = sampleFromDist(cs, dist)
+					dist = [2, 1, 2, 1, 2, 1, 1, 1]
+					note = sampleFromDist(cs, dist)
 
 				#upbeats. Closer notes more likely to be played, especially if eigth notes
 				else:
 					dist = [3, 5, 5, 5, 5, 5, 3, 1]
 					distances = []
 					for scaleNote in cs:
-						distances.append(scaleNote-lastNote) #positive implies above
+						if (scaleNote-lastNote != 0):
+							distances.append(scaleNote-lastNote) #positive implies above
+						else:
+							distances.append(5) #for same note
 					invDist = invertArray(distances) #gather the weights for cs distribution
 					weightedDist = multiplyElems(invDist, dist)
+					weightedDist = multiplyElems(weightedDist, invDist)
 					#need to convert dist into ints
-					weightedDist = [int(i*10) for i in weightedDist]
+					weightedDist = [int(i*100) for i in weightedDist]
 					note = sampleFromDist(cs, weightedDist)
 
-				#consecutive repeating rhythms should have relatively small variance
-			
-			#final edits to note
 			#chance of jumping octave, slim and depends on if prev note was eigth note?
 			#add chance of rest
-			#dynamic change based on location in phrase and prev note (if ascending and in mid of phrase, louder)
 
 			#note obtained. Bring it to octave range.
 			diff = note - lastNote #scale difference
-			lasteNote = note
+			lastNote = note
 
 			octaves = [note-OCTAVE_SIZE, note, note+OCTAVE_SIZE]
 
@@ -626,11 +629,15 @@ def constructHarmony(file, chordProgression, track, channel):
 			
 			#if (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
 			#	pass
+			if (measureNum == len(rhythm)-1):
+				notes = [scale[0]]
+				dist = [1]
 			
 			#start of measure. chord tonic
-			if (beatNum == 0):
+			elif (beatNum == 0):
 				notes = [cs[0], cs[0]-OCTAVE_SIZE, cs[0] - 2*OCTAVE_SIZE]
 				dist = [3, 1, 1]
+			
 
 			#if start of chord e.g TIME/CHORDSPERMEASURE. tonic. always
 			elif ((beatNum+1) % CHORDS_PER_MEASURE) == 0:
