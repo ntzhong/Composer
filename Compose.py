@@ -243,7 +243,21 @@ def determineMelodicRhythm():
 					if (measureNum == PHRASE_LENGTH-1):
 						#1st beat: extremely high chance of whole note. Chances: whole note > eigth > quarter > half > swing.
 						#does not end on upbeat
-						if (curBeat == 0):
+						randomChance = [0, 1]
+						dist = [9, 1]
+						chance = sampleFromDist(randomChance, dist)
+						if (chance) and curBeat.is_integer():
+							chance2 = sampleFromDist(randomChance, [1, 1])
+							if chance2:
+								duration = 0.25
+								duration2 = 0.25
+								duration3 = 0.75
+							else:
+								duration = 0.75
+								duration2 = 0.25
+								duration3 = 0.25
+
+						elif (curBeat == 0):
 							durations = [0.5, 1, 2, 3, 3.5, 4]
 							dist = [1, 2, 1, 4, 4, 2]
 							duration = sampleFromDist(durations, dist)
