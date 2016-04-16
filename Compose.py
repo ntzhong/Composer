@@ -10,7 +10,7 @@ BPM = 90 #BPM
 CHORDS_PER_MEASURE = 1 #standard is 1 or 2
 PHRASE_LENGTH = 4 #in measures
 SONG_LENGTH = PHRASE_LENGTH * 4 + 1 #in measures. +1 for resolution measure?
-ROOT = 68 #Set tonic to middle C
+ROOT = 80 #Set tonic to middle C
 TIME_SIGNATURE = 4 #no compound meter. in beats per measure
 MAJORKEY = True #false => minor
 NUM_TRACKS = 2 #number of tracks. only 1 or 2 for now.
@@ -56,66 +56,6 @@ time = 0 #in beats. Location in song. must increment
 #scale construction
 majScale = [tonic, second, majThird, fourth, fifth, majSixth, majSev, tonic+OCTAVE_SIZE]
 minScale = [tonic, second, minThird, fourth, fifth, minSixth, minSev, tonic+OCTAVE_SIZE]
-
-#establish rhythms. 1 = 1 beat
-#durations = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 3.5, 4]
-
-
-
-########################
-##### MUSIC THEORY #####
-########################
-
-#takes in a MIDI value. returns 3-elem array of midi values
-#quality = "min" or "maj"
-def constructTriad(root, quality = "maj"):
-	if quality == "maj":
-		return constructMajTriad(root)
-	else:
-		return constructMinTriad(root)
-
-
-def constructMajTriad(root):
-	return [root, root+majThird, root+fifth]
-
-def constructMinTriad(root):
-	return [root, root+minThird, root+fifth]
-
-def constructMajMinSev(root):
-	majTriad = constructMajTriad(root)
-	return majTriad.append(root + minSev)
-
-def constructMinSev(root):
-	minTriad = constructMinTriad(root)
-	return minTriad.append(root + minSev)
-
-def constructMajSev(root):
-	majTraid = constructMajTriad(root)
-	return majTriad.append(root + majSev)
-
-#takes in an array of notes and returns a random inversion (root, 1st, 2nd).
-#chord can be any length, but max 4 inversions
-def invChordRand(triad):
-	value = randint(0, 15) #0-10 inclusive
-	if value < 4:
-		return triad
-	elif value < 8: 
-		return inv(triad, 1)
-	elif value < 12:
-		return inv(triad, 2) 
-	else: #between [12,15]
-		if len(triad) < 4:
-			return triad
-		else:
-			return inv(triad, 3)
-
-
-#returns nth inversion of chord
-def inv(triad, n):
-	for i in range(0, n): #[0,2), so run 2 times
-		root = triad.pop(0)
-		triad.append(root)
-	return root
 
 
 
@@ -183,6 +123,89 @@ def sampleFromDist(itemArray, distribution):
 		print ("array indices don't match up")
 		print itemArray
 		print distribution
+
+
+
+
+
+########################
+##### MUSIC THEORY #####
+########################
+
+#takes in a MIDI value. returns 3-elem array of midi values
+#quality = "min" or "maj"
+
+
+#when using, want selected note to be on top => 2nd inversion triad of root
+
+#build a chord according to chord scale on top of note
+def constructTriadInScale(root, scale, inv=0):
+	rootIndex = scale.index(root)
+	thirdIndex = rootIndex+2
+	fifthIndex = rootIndex+4
+
+	first = scale[rootIndex]
+	third = scale[(rootIndex+2)%8]
+	fifth = scale[(rootIndex+4)%8]
+
+	#handle wrap-around
+	if third < first:
+		third += OCTAVE_SIZE
+	if fifth < first:
+		fifth += OCTAVE_SIZE
+
+	scale = [first, third, fifth]
+	shift(scale, inv)
+	return scale
+
+
+
+def constructTriad(root, quality = 0):
+	if quality == 0:
+		return constructMajTriad(root)
+	else:
+		return constructMinTriad(root)
+
+
+def constructMajTriad(root):
+	return [root, root+majThird, root+fifth]
+
+def constructMinTriad(root):
+	return [root, root+minThird, root+fifth]
+
+def constructMajMinSev(root):
+	majTriad = constructMajTriad(root)
+	return majTriad.append(root + minSev)
+
+def constructMinSev(root):
+	minTriad = constructMinTriad(root)
+	return minTriad.append(root + minSev)
+
+def constructMajSev(root):
+	majTraid = constructMajTriad(root)
+	return majTriad.append(root + majSev)
+
+#takes in an array of notes and returns a random inversion (root, 1st, 2nd).
+#chord can be any length, but max 4 inversions
+def invChordRand(triad):
+	value = randint(0, 15) #0-10 inclusive
+	if value < 4:
+		return triad
+	elif value < 8: 
+		return inv(triad, 1)
+	elif value < 12:
+		return inv(triad, 2) 
+	else: #between [12,15]
+		if len(triad) < 4:
+			return triad
+		else:
+			return inv(triad, 3)
+
+
+#returns nth inversion of chord
+def inv(triad, n):
+	return shift(triad, n)
+
 
 
 
@@ -287,7 +310,7 @@ def determineMelodicRhythm():
 	rhythm.append(measure)
 	return rhythm
 
-def determineHarmonicRhythm():
+def determineHarmonicRhythm(): #ONLY FOR TIME SIGNATURE = 4
 	phrases_in_song = (SONG_LENGTH-1) / PHRASE_LENGTH
 	rhythm = []
 	for phrase in range(0, phrases_in_song): #per phrase
@@ -297,12 +320,34 @@ def determineHarmonicRhythm():
 			duration = 0.0
 			duration2 = 0.0 #potential successive note
 			duration3 = 0.0
-
 			#determine rhythm of the measure with probability. Depends on location in phrase, possibly also on value of beatsLeft
 			while curBeat < TIME_SIGNATURE:
-				if curBeat == 0: #first beat higher chance of eigths
+				#end of phrase
+				if measureNum == PHRASE_LENGTH-1: #last measure of phrase
+					if curBeat == 0:
+						durs = [0.5, 1, 2, 4]
+						dist = [5, 5, 5, 5]
+					elif curBeat == 1:
+						durs = [0.5, 1]
+						dist = [5, 5]
+					elif curBeat == 2: #beat 3
+						durs = [2]
+						dist = [1]
+					elif curBeat == 3:
+						durs = [1]
+						dist = [1]
+					else:
+						durs = [0.5, 1]
+						dist = [10, 1]
+
+				elif (curBeat == 0 and measureNum == 0): #start of phrase
+					durs = [0.5, 1]
+					dist = [5, 5]
+
+				#general everything
+				elif curBeat == 0: #first beat higher chance of eigths
 					durs = [0.5, 1, 2]
-					dist = [10, 3, 1]
+					dist = [10, 5, 1]
 
 				elif curBeat == 1:#2nd beat: higer chance of quarter
 					durs = [0.5, 1]
@@ -331,7 +376,6 @@ def determineHarmonicRhythm():
 	return rhythm
 
 
-
 #returns a chord progression for entirety of song. key_quality = "maj" or "min"
 def constructChordProg(key_quality):
 	#every chord gets equal amount of time, based on num chords per measure
@@ -341,7 +385,6 @@ def constructChordProg(key_quality):
 		scale = minScale
 
 	#Sets scale to octave range of root
-	#scale = [x+ROOT for x in scale]
 	phrases_in_song = (SONG_LENGTH-1)/PHRASE_LENGTH
 	
 	chordProgression = []
@@ -366,9 +409,7 @@ def constructChordProg(key_quality):
 					chordProgression.append(chord)
 
 				elif (measure == PHRASE_LENGTH-1): #end of phrase. high chance of dominant. can also be 4
-					#dominant 85%
-					#subDom = 10%
-					notes = [scale[3], scale[4]]
+					notes = [scale[3], scale[4]] #subDom, Dom
 					dist = [1, 9]
 					chord = sampleFromDist(notes, dist)
 					chordProgression.append(chord)
@@ -427,7 +468,7 @@ def constructMelody(file, chordProgression, track, channel):
 			#	pass
 
 			#start of phrase
-			elif (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
+			elif ((measureNum+1)%(PHRASE_LENGTH) == 0) and (beatNum == 0):
 				dist = [10, 1, 8, 5, 9, 5, 5, 1]
 				note = sampleFromDist(scale, dist)
 
@@ -500,7 +541,7 @@ def constructMelody(file, chordProgression, track, channel):
 			realNote = note + baseNote
 
 			#regulate range:
-			if realNote <= 48:
+			if realNote <= 60:
 				#remain, or bring back up 1
 				octs = [realNote, realNote + OCTAVE_SIZE]
 				octaveDist = [1, 2]
@@ -541,7 +582,7 @@ def constructMelody(file, chordProgression, track, channel):
 #ROUGH, FOCUS ONLY ON 1 CHORD PER MEASURE FOR NOW
 def constructHarmony(file, chordProgression, track, channel):
 	#make harmonic volume slightly lower than melody
-	harmVol = N - 15
+	harmVol = N - 25
 	rhythm = determineHarmonicRhythm()
 	baseNote = ROOT - 2*OCTAVE_SIZE
 
@@ -549,7 +590,6 @@ def constructHarmony(file, chordProgression, track, channel):
 	measureNum = 0
 	beatNum = 0
 	note = 0
-	baseNote = ROOT
 	lastNote = 0 #scale note
 	chordNum = 0
 	#intervals of chord changes. e.g 2 chords per measure at 4/4: new chord at beat 3
@@ -572,8 +612,7 @@ def constructHarmony(file, chordProgression, track, channel):
 			
 			#if (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
 			#	pass
-
-
+			
 			#start of measure. chord tonic
 			if (beatNum == 0):
 				notes = [cs[0], cs[0]-OCTAVE_SIZE, cs[0] - 2*OCTAVE_SIZE]
