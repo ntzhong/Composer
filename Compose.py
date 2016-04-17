@@ -10,7 +10,7 @@ BPM = 90 #BPM
 CHORDS_PER_MEASURE = 1 #standard is 1 or 2
 PHRASE_LENGTH = 4 #in measures
 SONG_LENGTH = PHRASE_LENGTH * 4 + 1 #in measures. +1 for resolution measure?
-ROOT = 80 #Set tonic to middle C
+ROOT = 90 #Set tonic to middle C
 TIME_SIGNATURE = 4 #no compound meter. in beats per measure
 MAJORKEY = True #false => minor
 NUM_TRACKS = 2 #number of tracks. only 1 or 2 for now.
@@ -247,14 +247,27 @@ def determineMelodicRhythm():
 					randomChance = [0, 1]
 					randDist = [9, 1]
 					chance = sampleFromDist(randomChance, randDist)
-					if (measureNum == PHRASE_LENGTH-1):
-						#1st beat: extremely high chance of whole note. Chances: whole note > eigth > quarter > half > swing.
+
+					#first beat of first measure
+					if (curBeat + measureNum == 0):
+						durations = [0.5, 1, 1.5, 2, 3, 3.5, 4]
+						dist = [5, 5, 5, 1, 1, 1, 1]
+						duration = sampleFromDist(durations, dist)
+						if (duration == 1.5):
+							durs = [0.5, 1.5]
+							dist = [1, 1]
+							duration2 = sampleFromDist(durs, dist)
+						if (duration == 0.5):
+							duration2 = 0.5
+
+					#last measure of phrase
+					elif (measureNum == PHRASE_LENGTH-1):
 						#does not end on upbeat
 						if (curBeat == 0):
 							durations = [0.5, 1, 2, 3, 3.5, 4]
 							dist = [1, 2, 1, 4, 4, 2]
 							duration = sampleFromDist(durations, dist)
-							#conditionals, certaing values should be followed
+
 							if (duration == 3): #two eigth notes to bridge into next phrase
 								duration2 = duration3 = 0.5
 							elif (duration == 3.5):
@@ -264,7 +277,8 @@ def determineMelodicRhythm():
 							elif (duration == 1):
 								duration2 = 2 #also meh
 
-						elif (curBeat == lastBeat): #4th beat. chance of 2 or 1 or no eigth-notes.
+						#4th beat. chance of 2 or 1 or no eigth-notes.
+						elif (curBeat == lastBeat): 
 							durations = [0.5, 0.75, 1]
 							dist = [5, 5, 5]
 							duration = sampleFromDist(durations, dist)
@@ -281,7 +295,6 @@ def determineMelodicRhythm():
 							while duration > remaining_beats:
 								duration = sampleFromDist(options, dist)
 
-
 					elif (chance) and curBeat.is_integer():
 						chance2 = sampleFromDist(randomChance, [1, 1])
 						if chance2:
@@ -293,7 +306,22 @@ def determineMelodicRhythm():
 							duration2 = 0.25
 							duration3 = 0.25
 
-					elif (curBeat == lastBeat): #last beat in normal measure. swings to bridge into next measure
+					#beginning of measure
+					elif (curBeat == 0):
+						durs = [0.5, 1, 1.5, 2, 3, 3.5, 4]
+						dist = [10, 7, 7, 1, 1, 1, 1 ]
+						duration = sampleFromDist(durs, dist)
+						chance = coinFlip(1, 1)
+						if (duration == 1.5 and chance):
+							durs = [0.5, 1.5]
+							dist = [1, 1]
+							duration2 = sampleFromDist(durs, dist)
+						elif (duration == 1.5):
+							duration2 = 0.25
+							duration3 = 0.25
+
+					#last beat in normal measure. swings to bridge into next measure
+					elif (curBeat == lastBeat): 
 						durations = [0.5, 0.75, 1]
 						dist = [5, 5, 5]
 						duration = sampleFromDist(durations, dist)
@@ -302,7 +330,7 @@ def determineMelodicRhythm():
 						elif (durations == 0.75):
 							duration2 = 0.25
 
-					else: #for everything else, sample psuedo-randomly. swing notes only allowed in set?
+					else: #for everything else, sample psuedo-randomly.
 						remaining_beats = TIME_SIGNATURE - curBeat
 						options = [0.25, 0.5, 1, 1.5, 2, 3]
 						dist = [-1, 6, 3, 2, 1, 1]
@@ -446,6 +474,8 @@ def constructChordProg(key_quality):
 
 
 
+#JUST MAKE IT STOP JUMPING OCTAVES, OR DO IT HELLA RARELY
+#ALSO DO THE ASCEND/DESCEND SHIT
 
 #takes in a MIDIFile object and constructs composition
 #constructs two independent lines, to be combined at the end, based on same chord progression
@@ -595,7 +625,7 @@ def constructMelody(file, chordProgression, track, channel):
 		chordNum += CHORDS_PER_MEASURE
 		measureNum += 1
 
-
+#REPETIVE AND ANNOYING. MAKE IT CLIMB
 #ROUGH, FOCUS ONLY ON 1 CHORD PER MEASURE FOR NOW
 def constructHarmony(file, chordProgression, track, channel):
 	#make harmonic volume slightly lower than melody
@@ -629,7 +659,8 @@ def constructHarmony(file, chordProgression, track, channel):
 			
 			#if (measureNum%(PHRASE_LENGTH) == 0) and (beatNum == 0):
 			#	pass
-			if (measureNum == len(rhythm)-1):
+			#very last measure, resolve on tonic
+			if (measureNum == len(rhythm)-1): 
 				notes = [scale[0]]
 				dist = [1]
 			
@@ -644,7 +675,7 @@ def constructHarmony(file, chordProgression, track, channel):
 				notes = [cs[0]]
 				dist = [1]
 
-			#other downbeats will contain dominant/tonic w/ high chance, also 3rd
+			#other downbeats will contain dominant/ tonic+12/ high chance, also 3rd
 			elif beatNum.is_integer():
 				notes = [cs[0], cs[2], cs[4], cs[7], cs[2]+OCTAVE_SIZE]
 				dist = [0, 1, 2, 2, 2]
@@ -652,8 +683,11 @@ def constructHarmony(file, chordProgression, track, channel):
 			#upbeats:dominant, 3rd, chance of just going up 1 if prev was tonic
 			else:
 				if lastNote == cs[0]:
-					notes = [cs[2], cs[4], cs[7], lastNote+1]
-					dist = [5, 5, 2, 1]
+					notes = [cs[2], cs[4], cs[7] - OCTAVE_SIZE, cs[7]]
+					dist = [5, 5, 1, 1]
+				elif lastNote == cs[4]:
+					notes = [cs[0], cs[2], cs[4], cs[7]]
+					dist = [2, 5, 1, 5]
 				else:
 					notes = [cs[2], cs[4], cs[7]]
 					dist = [3, 3, 1]
