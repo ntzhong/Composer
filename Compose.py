@@ -86,7 +86,6 @@ def multiplyElems(a, b):
 
 #returns array of reciprocals
 def invertArray(array):
-
 	newArray = []
 	for value in array:
 		#import pdb; pdb.set_trace()
@@ -123,15 +122,48 @@ def sampleFromDist(itemArray, distribution):
 		print itemArray
 		print distribution
 
-def coinFlip(a, b): #returns true with chance a, false w/ chance b
+#returns true with chance a, false w/ chance b
+def coinFlip(a, b): 
 	choices = [0, 1]
 	dist = [a, b]
 	return sampleFromDist(choices, dist)
 
+#returns value of nearest note, and abs(distance)
+def findNearestNote(curNote, noteInQuestion):
+	dif1 = abs(curNote - noteInQuestion)
+	dif2 = abs(curNote + OCTAVE_SIZE - noteInQuestion)
+	dif3 = abs(curNote - OCTAVE_SIZE - noteInQuestion)
+	minDif = min(dif1, dif2, dif3)
+	if minDif == dif1:
+		dist = dif1
+		note = curNote
+	elif minDif == dif2:
+		dist = dif2
+		note = noteInQuestion - OCTAVE_SIZE
+	else:
+		dist = dif3
+		note = noteInQuestion + OCTAVE_SIZE
+	return [note, dist]
 
+#take the abs difference between two notes. If the difference is 6 higher, then lower
+#if the difference is less than -6, then raise octave
+#octave changes with chance. returns new note. chance is in [0, 1]
+def flipOctWithDist(note, dist, threshold, chance): #note
+	octaves = [note - OCTAVE_SIZE, note, note + OCTAVE_SIZE]
+	chanceInt = int(chance * 100)
+	negChance = int(100 - chanceInt)
+	rand = coinFlip(chanceInt, negChance)
+	if rand:
+		if (dist >= threshold):
+			return octaves[0] #lower
+		elif (dist <= -threshold):
+			return octaves[2] #raise
+	return note
 
+#if beyond min/max threshold, move octave with chance. else keep going
+def regulateRange(min, max, chance):
 
-
+	
 ########################
 ##### MUSIC THEORY #####
 ########################
@@ -333,7 +365,7 @@ def determineMelodicRhythm():
 					else: #for everything else, sample psuedo-randomly.
 						remaining_beats = TIME_SIGNATURE - curBeat
 						options = [0.25, 0.5, 1, 1.5, 2, 3]
-						dist = [-1, 6, 3, 2, 1, 1]
+						dist = [-1, 8, 4, 2, 1, 1]
 						duration = sampleFromDist(options, dist)
 						while duration > remaining_beats:
 							if (len(options) > 1):
@@ -551,17 +583,26 @@ def constructMelody(file, chordProgression, track, channel):
 				else:
 					dist = [3, 5, 5, 5, 5, 5, 3, 1]
 					distances = []
+					notes = []
 					for scaleNote in cs:
 						if (scaleNote-lastNote != 0):
-							distances.append(scaleNote-lastNote) #positive implies above
+							#weight distances
+							nearest = findNearestNote(scaleNote, lastNote) #[note, dist]
+							distances.append(nearest[1])
+							#get the correct octave version
+							notes.append(nearest[0])
+							
 						else:
-							distances.append(5) #for same note
+							distances.append(8) #low chance of repeating note
+							notes.append(scaleNote)
+
 					invDist = invertArray(distances) #gather the weights for cs distribution
 					weightedDist = multiplyElems(invDist, dist)
+					#squaring to give more weight, and eliminate negatives
 					weightedDist = multiplyElems(weightedDist, invDist)
-					#need to convert dist into ints
+					#need to convert dist into ints.
 					weightedDist = [int(i*100) for i in weightedDist]
-					note = sampleFromDist(cs, weightedDist)
+					note = sampleFromDist(notes, weightedDist)
 
 			#chance of jumping octave, slim and depends on if prev note was eigth note?
 			#add chance of rest
@@ -571,19 +612,12 @@ def constructMelody(file, chordProgression, track, channel):
 			lastNote = note
 
 			octaves = [note-OCTAVE_SIZE, note, note+OCTAVE_SIZE]
+			#problem with flipping: diff no longer tracks positive/negative
+			#flipOctWithDist(note, diff, scale[5], 0.5 ) #note, distance, threshold, chance.
 
-
-			if diff >= scale[5]: #6+ jump up from prev note, slight chance of lowering octave
-				octaveDist = [1, 1, 0]
-				note = sampleFromDist(octaves, octaveDist)
-
-			elif diff <= -(scale[5]): #6+ jump down from prev note, slight chance of raising octave
-				#raise octave w/ chance
-				octaveDist = [0, 1, 1]
-				note = sampleFromDist(octaves, octaveDist)
-			else: #randomly raise or lower octave
-				octaveDist = [1, 8, 1]
-				note = sampleFromDist(octaves, octaveDist)
+			#else: #randomly raise or lower octave
+			octaveDist = [1, 8, 1] #in else
+			note = sampleFromDist(octaves, octaveDist) #in else
 
 			realNote = note + baseNote
 
