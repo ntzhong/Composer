@@ -148,7 +148,8 @@ def findNearestNote(curNote, noteInQuestion):
 #take the abs difference between two notes. If the difference is 6 higher, then lower
 #if the difference is less than -6, then raise octave
 #octave changes with chance. returns new note. chance is in [0, 1]
-def flipOctWithDist(note, dist, threshold, chance): #note
+def flipOctWithDist(note, lastNote, threshold, chance): #note
+	dist = note - lastNote
 	octaves = [note - OCTAVE_SIZE, note, note + OCTAVE_SIZE]
 	chanceInt = int(chance * 100)
 	negChance = int(100 - chanceInt)
@@ -161,7 +162,15 @@ def flipOctWithDist(note, dist, threshold, chance): #note
 	return note
 
 #if beyond min/max threshold, move octave with chance. else keep going
-def regulateRange(min, max, chance):
+def regulateRange(note, min, max, chance):
+	chance = int(chance * 100)
+	randChance = coinFlip(chance, 100-chance)
+	if randChance:
+		if note >= max:
+			return note-OCTAVE_SIZE
+		elif note <= min:
+			return note+OCTAVE_SIZE
+	return note
 
 	
 ########################
@@ -283,7 +292,7 @@ def determineMelodicRhythm():
 					#first beat of first measure
 					if (curBeat + measureNum == 0):
 						durations = [0.5, 1, 1.5, 2, 3, 3.5, 4]
-						dist = [5, 5, 5, 1, 1, 1, 1]
+						dist = [8, 8, 5, 1, 1, 1, 1]
 						duration = sampleFromDist(durations, dist)
 						if (duration == 1.5):
 							durs = [0.5, 1.5]
@@ -294,10 +303,9 @@ def determineMelodicRhythm():
 
 					#last measure of phrase
 					elif (measureNum == PHRASE_LENGTH-1):
-						#does not end on upbeat
 						if (curBeat == 0):
 							durations = [0.5, 1, 2, 3, 3.5, 4]
-							dist = [1, 2, 1, 4, 4, 2]
+							dist = [1, 2, 1, 4, 4, 1]
 							duration = sampleFromDist(durations, dist)
 
 							if (duration == 3): #two eigth notes to bridge into next phrase
@@ -322,7 +330,7 @@ def determineMelodicRhythm():
 							remaining_beats = TIME_SIGNATURE - curBeat
 							 #higher chance of half-note if it is in 2nd beat
 							options = [0.5, 1, 2]
-							dist = [1, 1, 2]
+							dist = [4, 3, 2]
 							duration = sampleFromDist(options, dist)
 							while duration > remaining_beats:
 								duration = sampleFromDist(options, dist)
@@ -341,7 +349,7 @@ def determineMelodicRhythm():
 					#beginning of measure
 					elif (curBeat == 0):
 						durs = [0.5, 1, 1.5, 2, 3, 3.5, 4]
-						dist = [10, 7, 7, 1, 1, 1, 1 ]
+						dist = [10, 7, 5, 1, 1, 1, 1 ]
 						duration = sampleFromDist(durs, dist)
 						chance = coinFlip(1, 1)
 						if (duration == 1.5 and chance):
@@ -365,7 +373,7 @@ def determineMelodicRhythm():
 					else: #for everything else, sample psuedo-randomly.
 						remaining_beats = TIME_SIGNATURE - curBeat
 						options = [0.25, 0.5, 1, 1.5, 2, 3]
-						dist = [-1, 8, 4, 2, 1, 1]
+						dist = [2, 8, 4, 2, 1, 1]
 						duration = sampleFromDist(options, dist)
 						while duration > remaining_beats:
 							if (len(options) > 1):
@@ -373,6 +381,8 @@ def determineMelodicRhythm():
 								options.pop(index)
 								dist.pop(index)
 							duration = sampleFromDist(options, dist)
+						if (duration == 0.25) and (remaining_beats - duration > 0):
+							duration2 = 0.25
 				#rhythm of next note decided
 				measure.append(duration)
 				if duration2 > 0:
@@ -527,6 +537,9 @@ def constructMelody(file, chordProgression, track, channel):
 	#intervals of chord changes. e.g 2 chords per measure at 4/4: new chord at beat 3
 	chordDiv = TIME_SIGNATURE/CHORDS_PER_MEASURE
 	time = 0
+	prevDuration = 4
+	#negative => descend, positive => ascend
+	asc = 0
 
 	if MAJORKEY:
 		scale = majScale
@@ -573,15 +586,15 @@ def constructMelody(file, chordProgression, track, channel):
 				cs = shift(scale, chordIndex) #chordScale
 				#downbeat of chord beginning (0, 3) (1,3,4-low,5, 6-low, 7-low)
 				if (beatNum == 0): #first beat
-					dist = [5, 2, 7, 4, 7, 5, 3, 0]
+					dist = [3, 2, 7, 4, 7, 4, 3, 2]
 					note = sampleFromDist(cs, dist)
 				elif beatNum.is_integer(): #all downbeats in general. #lower chance of tonic if not 1st note in measure
-					dist = [2, 1, 2, 1, 2, 1, 1, 1]
+					dist = [2, 1, 2, 2, 2, 2, 1, 2]
 					note = sampleFromDist(cs, dist)
 
 				#upbeats. Closer notes more likely to be played, especially if eigth notes
 				else:
-					dist = [3, 5, 5, 5, 5, 5, 3, 1]
+					dist = [3, 4, 5, 5, 5, 5, 3, 1]
 					distances = []
 					notes = []
 					for scaleNote in cs:
@@ -600,44 +613,39 @@ def constructMelody(file, chordProgression, track, channel):
 					weightedDist = multiplyElems(invDist, dist)
 					#squaring to give more weight, and eliminate negatives
 					weightedDist = multiplyElems(weightedDist, invDist)
+					#cube it to make sure there are almost no chance of jumps
+					if prevDuration < 1.0:
+						weightedDist = multiplyElems(weightedDist, invDist)
+						weightedDist = multiplyElems(weightedDist, invDist)
 					#need to convert dist into ints.
-					weightedDist = [int(i*100) for i in weightedDist]
+					weightedDist = [int(i*1000) for i in weightedDist]
 					note = sampleFromDist(notes, weightedDist)
 
 			#chance of jumping octave, slim and depends on if prev note was eigth note?
 			#add chance of rest
 
 			#note obtained. Bring it to octave range.
-			diff = note - lastNote #scale difference
+			diff = note - lastNote #scale difference. negatve => lower than last
 			lastNote = note
+			#calculateAscensionValue()
 
 			octaves = [note-OCTAVE_SIZE, note, note+OCTAVE_SIZE]
 			#problem with flipping: diff no longer tracks positive/negative
-			#flipOctWithDist(note, diff, scale[5], 0.5 ) #note, distance, threshold, chance.
+			note = flipOctWithDist(note, lastNote, scale[5], 0.9 ) #note, distance, threshold, chance.
 
 			#else: #randomly raise or lower octave
-			octaveDist = [1, 8, 1] #in else
-			note = sampleFromDist(octaves, octaveDist) #in else
-
+			if note != lastNote:
+				octaveDist = [1, 9, 1] #in else
+				note = sampleFromDist(octaves, octaveDist) #in else
 			realNote = note + baseNote
 
-			#regulate range:
-			if realNote <= 60:
-				#remain, or bring back up 1
-				octs = [realNote, realNote + OCTAVE_SIZE]
-				octaveDist = [1, 2]
-				tmp = sampleFromDist(octs, octaveDist)
-				if tmp > realNote:
-					baseNote += OCTAVE_SIZE
-				realNote = tmp
-			elif realNote >= 110:
-				#remain, or bring down 1
-				octs = [realNote - OCTAVE_SIZE, realNote]
-				octaveDist = [2, 1]
-				tmp = sampleFromDist(octs, octaveDist)
-				if tmp < realNote:
-					baseNote -= OCTAVE_SIZE
-				realNote = tmp
+			#regulate range: adjust realNote if it exceeds boundaries
+			tmp = regulateRange(realNote, 60, 110, .8)
+			if tmp > realNote: #implies tmp must then be +1 octave
+				baseNote += OCTAVE_SIZE
+			elif tmp < realNote:
+				baseNote -= OCTAVE_SIZE
+			realNote = tmp
 
 			#update baseNote to new range
 			if realNote < baseNote-2:
@@ -648,6 +656,7 @@ def constructMelody(file, chordProgression, track, channel):
 
 			#update values for next iteration
 			beatNum += duration
+			prevDuration = duration
 			if (beatNum > chordDiv) and (beatNum < TIME_SIGNATURE): #this only works for 2 chords in measure. abstract it further later to 4
 				curChord = chordProgression[chordNum+1]
 				cs = scale
@@ -663,9 +672,9 @@ def constructMelody(file, chordProgression, track, channel):
 #ROUGH, FOCUS ONLY ON 1 CHORD PER MEASURE FOR NOW
 def constructHarmony(file, chordProgression, track, channel):
 	#make harmonic volume slightly lower than melody
-	harmVol = N - 25
+	harmVol = N - 36
 	rhythm = determineHarmonicRhythm()
-	baseNote = ROOT - 2*OCTAVE_SIZE
+	baseNote = ROOT - 3*OCTAVE_SIZE
 
 	phrases_in_song = (SONG_LENGTH-1)/ PHRASE_LENGTH
 	measureNum = 0
@@ -700,8 +709,8 @@ def constructHarmony(file, chordProgression, track, channel):
 			
 			#start of measure. chord tonic
 			elif (beatNum == 0):
-				notes = [cs[0], cs[0]-OCTAVE_SIZE, cs[0] - 2*OCTAVE_SIZE]
-				dist = [3, 1, 1]
+				notes = [cs[0], cs[7], cs[0]-OCTAVE_SIZE, cs[0] - 2*OCTAVE_SIZE]
+				dist = [3, 5, 1, 1]
 			
 
 			#if start of chord e.g TIME/CHORDSPERMEASURE. tonic. always
@@ -720,15 +729,17 @@ def constructHarmony(file, chordProgression, track, channel):
 					notes = [cs[2], cs[4], cs[7] - OCTAVE_SIZE, cs[7]]
 					dist = [5, 5, 1, 1]
 				elif lastNote == cs[4]:
-					notes = [cs[0], cs[2], cs[4], cs[7]]
-					dist = [2, 5, 1, 5]
+					notes = [cs[0], cs[2], cs[4], cs[7], cs[2]+OCTAVE_SIZE]
+					dist = [2, 5, 1, 5, 5]
+				elif lastNote == cs[7]:
+					notes = [cs[2]+OCTAVE_SIZE, cs[4]]
+					dist = [5, 5]
 				else:
 					notes = [cs[2], cs[4], cs[7]]
 					dist = [3, 3, 1]
 
 			note = sampleFromDist(notes, dist)
 			realNote = baseNote + note
-
 			lastNote = note
 			lastRealNote = realNote
 			#handling octaves. 1st in chord/measure can be 1-2 octaves lower
@@ -740,6 +751,7 @@ def constructHarmony(file, chordProgression, track, channel):
 				chordScale = scale
 			durationIndex += 1
 
+			harmVol = N - realNote/2
 			file.addNote(track, channel, realNote, time, duration, harmVol)
 			time += duration
 
