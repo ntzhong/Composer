@@ -12,7 +12,7 @@ PHRASE_LENGTH = 4 #in measures
 SONG_LENGTH = PHRASE_LENGTH * 4 + 1 #in measures. +1 for resolution measure?
 ROOT = 90 #Set tonic to middle C
 TIME_SIGNATURE = 4 #no compound meter. in beats per measure
-MAJORKEY = True #false => minor
+MAJORKEY = False #false => minor
 NUM_TRACKS = 2 #number of tracks. only 1 or 2 for now.
 QUALITY = 0
 #set range of notes
@@ -172,6 +172,53 @@ def regulateRange(note, min, max, chance):
 			return note+OCTAVE_SIZE
 	return note
 
+
+#Reweight distribution with regards to ascension and descension trends and returns distribution
+#Chances of following trend increases up until a point, and decreases after that point
+#ascension count represents number of consecutive descensions/ascensions. negative => descension. 
+#count zeros as soon as trend is broken.
+def reweightWithContext(notes, dist, curNote, ascensionCount):
+	if ascensionCount == 0: #default
+		return dist
+
+	#else do teh calculamations
+	trendCount = abs(ascensionCount)
+	#this determines rate of diminish. higher offset => more gradual diminish (diminish by less than 1/(trendcount+offset))
+	offset = 8
+	#followChance is normalized to [0, 1]
+	followChance = 0.85 * offset/(trendCount+offset-1)
+	print followChance
+
+	noteIndex = notes.index(curNote)
+	if ascensionCount > 0: #ascension: amplify weights of higher notes by followChance
+		for i in range(noteIndex+1, len(notes)): #problem: if note is at end of scale?
+			dist[i] = int(round(dist[i] * (1+followChance)))
+
+	else: #descension: amplify weights of those below curNote
+		for i in range(0, noteIndex):
+			dist[i] = int(round(dist[i] * (1 + followChance)))
+
+	#need to cast to ints
+	return dist
+
+
+#updates ascension/descension counter.
+#counter resets to zero if trend is broken
+def determineAscensionCount(diff, curAscCount):
+	ascCount = 0
+	followsTrend = (diff * curAscCount) > 0
+
+	if followsTrend: #follows trend
+		ascCount = curAscCount + diff/abs(diff) #+/- 1 depending on sign of diff
+
+	return ascCount
+
+
+
+		
+		
+
+
 	
 ########################
 ##### MUSIC THEORY #####
@@ -259,7 +306,9 @@ def inv(triad, n):
 #################################
 ##### COMPOSITION FUNCTIONS #####
 #################################
+#This is where the magic happens
 
+#Qualities:
 #0 = normal
 #1 = lengthy and emotional
 #2 = short, upbeat, fast, happy
@@ -269,6 +318,7 @@ def inv(triad, n):
 #in comments, swing refers to .75, .25 beats in conjunction
 #rest determined later (randomly turn notes on/off). Or can intentionally place them here, w/ duration=-1
 def determineMelodicRhythm():
+	print "constructing melodic rhythm ..."
 	phrases_in_song = (SONG_LENGTH-1) / PHRASE_LENGTH
 	rhythm = []
 	lastBeat = TIME_SIGNATURE-1
@@ -282,7 +332,7 @@ def determineMelodicRhythm():
 				duration2 = 0.0 #potential successive notes
 				duration3 = 0.0
 				#Determine next rhythm, note by note
-				#arbitarily chosen style standard
+				#arbitarily chosen style standard. Currently only style is QUALITY == 0. Create extension file for other options?
 				if QUALITY == 0:
 					#for end of the phrase, but not the song
 					randomChance = [0, 1]
@@ -399,7 +449,10 @@ def determineMelodicRhythm():
 	rhythm.append(measure)
 	return rhythm
 
+
+
 def determineHarmonicRhythm(): #ONLY FOR TIME SIGNATURE = 4
+	print "constructing harmonic rhythm"
 	phrases_in_song = (SONG_LENGTH-1) / PHRASE_LENGTH
 	rhythm = []
 	for phrase in range(0, phrases_in_song): #per phrase
@@ -526,7 +579,6 @@ def constructMelody(file, chordProgression, track, channel):
 	print "constructing melody..."
 	vol = N
 	rhythm = determineMelodicRhythm() #array of measures, each measure contains durations summing to TIME_SIGNATURE
-	print "melodic rhythm determined"
 	phrases_in_song = (SONG_LENGTH-1)/ PHRASE_LENGTH
 	measureNum = 0
 	beatNum = 0.0
@@ -540,6 +592,7 @@ def constructMelody(file, chordProgression, track, channel):
 	prevDuration = 4
 	#negative => descend, positive => ascend
 	asc = 0
+	melody = []
 
 	if MAJORKEY:
 		scale = majScale
@@ -562,7 +615,7 @@ def constructMelody(file, chordProgression, track, channel):
 				note = scale[0]
 			#start of phrase
 			elif ((measureNum % PHRASE_LENGTH) == 0) and (beatNum == 0):
-				dist = [10, 1, 8, 5, 9, 5, 5, 1]
+				dist = [6, 1, 10, 5, 9, 5, 5, 1]
 				note = sampleFromDist(scale, dist)
 
 			#2nd to last note in song, force to be supertonic or leading
@@ -619,6 +672,7 @@ def constructMelody(file, chordProgression, track, channel):
 						weightedDist = multiplyElems(weightedDist, invDist)
 					#need to convert dist into ints.
 					weightedDist = [int(i*1000) for i in weightedDist]
+					weightedDist = reweightWithContext(notes, weightedDist, lastNote, asc)
 					note = sampleFromDist(notes, weightedDist)
 
 			#chance of jumping octave, slim and depends on if prev note was eigth note?
@@ -635,7 +689,7 @@ def constructMelody(file, chordProgression, track, channel):
 
 			#else: #randomly raise or lower octave
 			if note != lastNote:
-				octaveDist = [1, 9, 1] #in else
+				octaveDist = [1, 14, 1] #in else
 				note = sampleFromDist(octaves, octaveDist) #in else
 			realNote = note + baseNote
 
@@ -653,28 +707,31 @@ def constructMelody(file, chordProgression, track, channel):
 			elif realNote > baseNote+OCTAVE_SIZE:
 				baseNote += OCTAVE_SIZE
 
-
 			#update values for next iteration
+			asc = determineAscensionCount(diff, asc) #update asc count according to trend
 			beatNum += duration
 			prevDuration = duration
 			if (beatNum > chordDiv) and (beatNum < TIME_SIGNATURE): #this only works for 2 chords in measure. abstract it further later to 4
 				curChord = chordProgression[chordNum+1]
 				cs = scale
 			durationIndex += 1
-
+			melody.append(note)
 			file.addNote(track, channel, realNote, time, duration, vol)
 			time += duration
 
 		chordNum += CHORDS_PER_MEASURE
 		measureNum += 1
+	print "melody:"
+	print melody
 
 #REPETIVE AND ANNOYING. MAKE IT CLIMB
 #ROUGH, FOCUS ONLY ON 1 CHORD PER MEASURE FOR NOW
 def constructHarmony(file, chordProgression, track, channel):
 	#make harmonic volume slightly lower than melody
-	harmVol = N - 36
+	print "constructing harmony..."
+	harmVol = N - 42
 	rhythm = determineHarmonicRhythm()
-	baseNote = ROOT - 3*OCTAVE_SIZE
+	baseNote = ROOT - 2*OCTAVE_SIZE
 
 	phrases_in_song = (SONG_LENGTH-1)/ PHRASE_LENGTH
 	measureNum = 0
@@ -685,6 +742,7 @@ def constructHarmony(file, chordProgression, track, channel):
 	#intervals of chord changes. e.g 2 chords per measure at 4/4: new chord at beat 3
 	chordDiv = TIME_SIGNATURE/CHORDS_PER_MEASURE
 	time = 0
+	harmony = []
 
 	if MAJORKEY:
 		scale = majScale
@@ -704,8 +762,8 @@ def constructHarmony(file, chordProgression, track, channel):
 			#	pass
 			#very last measure, resolve on tonic
 			if (measureNum == len(rhythm)-1): 
-				notes = [scale[0]]
-				dist = [1]
+				notes = [scale[0], scale[0] - OCTAVE_SIZE]
+				dist = [10, 3]
 			
 			#start of measure. chord tonic
 			elif (beatNum == 0):
@@ -752,11 +810,15 @@ def constructHarmony(file, chordProgression, track, channel):
 			durationIndex += 1
 
 			harmVol = N - realNote/2
+			harmony.append(note)
 			file.addNote(track, channel, realNote, time, duration, harmVol)
 			time += duration
 
 		chordNum += CHORDS_PER_MEASURE
 		measureNum += 1
+
+	print "harmony:"
+	print harmony
 
 
 	#upbeats:dominant, 3rd, chance of just going up 1 if prev was tonic
