@@ -38,34 +38,61 @@
           <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
         </div>
 
-        <p>For you TL;DR kind of people, here's a piece composed by the program: </p>
+        <p>This program composes a piece, complete with both harmony and melody, and writes it to MIDI format. This works in both major and minor keys. For you TL;DR kind of people, here's a couple of pieces composed by the program: </p>
 
-<p><a href="https://drive.google.com/open?id=0B-yYdO8MBojUWWtYVlBfVnhSUTQ">https://drive.google.com/open?id=0B-yYdO8MBojUWWtYVlBfVnhSUTQ</a></p>
+<p>Minor Key: (it gets really interesting after ~22 seconds)
+<a href="https://drive.google.com/open?id=0B-yYdO8MBojUSE1KVnFFTGRYNGs">https://drive.google.com/open?id=0B-yYdO8MBojUSE1KVnFFTGRYNGs</a></p>
+
+<p>Major Key:
+<a href="https://drive.google.com/open?id=0B-yYdO8MBojUWWtYVlBfVnhSUTQ">https://drive.google.com/open?id=0B-yYdO8MBojUWWtYVlBfVnhSUTQ</a></p>
+
+<h3>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Introduction:</h3>
 
 <p>I was very surprised when I learned that musical automatons had already been in existence for at least several centuries. Perhaps most fascinating was David Roentgen's automaton modeled after Marie Antoinette in the 1700's. Roentgen's mechanical android strikes the strings of the instrument in perfect rhythm and with incredible precision, which is impressive given the technology available at the time.</p>
 
-<p>Considering how far technology has advanced since then, I decided to take a crack at making my own autonomous instrument to see just how far we've come since then. But unlike the ones created during the renaissance and baroque periods, this instrument does not play preset pieces. Instead, it writes its own pieces. </p>
+<p>Considering how far technology has advanced since then, I decided to take a crack at making my own autonomous instrument, but unlike the ones created during the renaissance and baroque periods, this instrument does not play preset pieces. Instead, it writes its own pieces. </p>
 
 <p>I call this program Composer (great naming sense, I know). This project explores the possibilities of music intelligence by first developing a program that can adhere to fundamental rules of western music theory, then then expanding on the program by attempting to imbue it with my own compositional style and preferences. Because this idea was, at the time, quite abstract, I decided to go for a more straight-forward implementation that involves hard-coding my own rules and probability distributions, rather than tackling it from an artificial intelligence and machine-learning standpoint.</p>
 
-<p>Throughout the history of autonomous instruments, the question of who or what deserves credit for the sounds produced by the instrument has always been a point of ambiguity. Dating back to the days of the first Automatons, the answer to this question was a little more clear-cut: because automatons were configured by craftsmen to play preset songs with no degrees of freedom, it's not hard to say that the crafstmen are responsible for the music produced by these automatons.</p>
+<h3>
+<a id="implementation" class="anchor" href="#implementation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Implementation</h3>
 
-<p>However, as we transitioned into the classical and romantic era, this question becomes blurred with the arrival of instruments like the Aeolian harp. Although the creator(s) of the harp designed the harp so that it could produce strange sounds and chords, they have no control over what sounds the harp actually produces.</p>
+<p>My approach is a rather simple one. In its most basic form, it essentially constructs a scale in a designated key, and psuedo-randomly selects notes from the scale with randomly generated durations. However, in order to make the composition sound less like a jumble of notes and more like a piece that was created with intention, a piece in its most basic form requires a chord progression, steady rhythm, phrasing, and cadence.</p>
 
-<p>Throughout the process of designing and implementing this program, I was able to further examine this question by applying it to myself and this program. The program makes its own decisions in composing its own song, from constructing chord progressions to deciding it's own rhythm and notes. However, I, the creator, gave the program a set of rules by which to follow when making these decisions. In a sense, I have a hand in directly influencing the decisions the program makes. Taking all this into consideration, would I, the creator, be considered the composer? Can I claim the product of this program as my own composition (not that I would want to given the quality)? Or is the program the true composer?</p>
+<p>My initial thought was to deal with these aspects simultaneously, afterall music is very contextually dependent (i.e. the selection of a note often influences subsequent notes). However, because I wasn't even sure if this would work at the time, I decided against this and instead ended up determining these aspects (mostly) independently. This way, I could easily adjust invdividual parameters without needing to rewrite large chunks of code.</p>
 
-<p>As it turns out, the answer is not all black or white. It is a spectrum that really boils down to intention and design. For the automatons back in the baroque period, the crafstmen designed every parameter with intention, and can predict and control, absolutely, the outcome of each parameter. In a way, this is analagous to writing out a song note by note. In my case, however, I've designed the program to make its own decisions, given a loose set of rules that must be followed. I can influence the results, but I do not have absolute control over the outcome. For this reason, I cannot say that I composed the pieces written by the program. Although I intended it to closely follow my own improvisation style (it currently doesn't do that very well), I do not have any more control beyond that. In a way, I am like the teacher, and the program is my student. I taught the program how to play, but that's all I did.</p>
+<p>To keep things simple for now, all pieces are in 4/4 time, and each phrase is 4 measures long. To begin, I subdivided the composition into phrases, which were further subdivided into measures, and then notes. There are several stages this program goes through to compose a piece: we begin by establishing the chord progression of the song, determining a chord for every 2-4 beats. One crucial rule to apply here is that phrases often end with an authentic cadence, and this almost always resolves into the tonic as the piece ends.</p>
 
-<p>So in my case, it's a little bit of both. Because a lot of the rules were hard-coded, I am largely responsible for the outcome, yet it is the program that makes the final decision. If, however, I had instead approached program from a machine-learning perspective, feeding it tons of MIDI files from which it could construct its own learning tree, my answer would be very different. In that case, I would say I had no part in the compositions the program writes, because I no longer have the role of teaching the program. Following the analogy used above, I'd be like the mother that hires a teacher for her kid.</p>
+<p>Once the chord progression has been constructed, the program proceeds to use the chord progression to construct the melody and harmony (both independent of each other). This is done in two parts: First determine the rhythm of the entire piece, then determine the notes based on both the already-determined rhythm and chords.</p>
+
+<p>Because I was hard-coding rules, I had to be careful of being too restrictive with my rules. For the most part, I managed to preserve as many degrees of freedom as I could. However, there were certain crucial parts of phrases that I had to be very specific about, such as the endings of phrases. By focusing on phrase endings, and allocating a high chance of ending in authentic cadences, and beginning with the tonic, I was able to achieve a greater sense of completion and coherence in each composition.</p>
+
+<p>However, even with these rules, the compositions still fell apart after several measures. The notes were oftentimes erratic, constantly jumping up and down large intervals. Here's an example of the types of compositions outputted at this stage of development:</p>
+
+<p>(comps/interestingstart.mid)
+<a href="https://drive.google.com/open?id=0B-yYdO8MBojUSXF2UzhDR0NwWWM">https://drive.google.com/open?id=0B-yYdO8MBojUSXF2UzhDR0NwWWM</a></p>
+
+<p>As you can see, it begins with a very coherent and interesting sound, but the uncontrolled and erratic jumps cause it to fall apart pretty quickly. To solve this problem, I needed context-dependent rules, where previous notes and rhythm determines the probabilities of subsequent notes. Unfortunately with my implementation, adding these rules became cumbersome and required many additional lines of code. It was difficult to keep the code clean without restructuring and rewriting large chunks of code. As a result, I only included a subset of rules I had wanted to include. The following are some of the rules I had included:</p>
+
+<p>-After selecting a note, determine the octave of the note based on the closest interval to the previous note: Because I selected from a scale of 7 notes, there was an annoying edge case where, for example, if the previous note was the tonic, and the selected note was the leading tone, the result would be a very sudden and usually unpleasant jump upwards from tonic to leading tone. This ignores the leading tone right below the tonic, which is much less jarring, and a much more natural musical tendency. The solution was simple: for every note chosen, examine the note at an octave above and below the previous note, and choose the octave with the least distance to the previous note.</p>
+
+<p>-Reweight probabilities of notes, giving greater favor to nearby notes if the rhythm is a fast one. This also works to reduce erratic jumps. If the previous note was an eigth note, then readjust the probabilities such that selecting a distant note is very unlikely. This weight becomes more extreme if the previous note is shorter.</p>
+
+<p>-Follow ascension/descension tendencies: If we take a truly random selection of notes, the chances of rising and falling in pitch are each ~50%. However, if you listen to any song, chances are that this is not the case. Typically, if a song moves up in pitch, then the subsequent notes are likely to continue the upward trend for a short period, and likewise for downward movement in pitch. To achieve something similar, the initial chances of rising or falling are each 50%. If the selected note is above the previous pitch, the chances of the next note being higher is increased by an arbitrary percentage. This increase continues as a curve that eventually plateaus after several consecutive increases. If the notes continue to rise after the probabilitiy plateaus, then the probability decreases linearly until the ascension trend is broken, in which case the probabilities are reset to 50%/50%. The same happens for descension in pitch.</p>
+
+<p>Adding just these three rules had a drastic effect in the outcome of the song. Although still a little bland, every so often the composition would sound like something I'd actually improvise, and there are often bits and pieces that sound like it as potential to evolve into a legitimate composition.</p>
+
+<p>Although I have structured the code in a way such that adding chords to compositions should be relatively easy and straightforward, I have decided to hold off on chords for the time being, at least until I've reached a satisfactory level of complexity in the compositions.</p>
 
 <h3>
 <a id="results" class="anchor" href="#results" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Results:</h3>
 
 <p>As expected, it was very difficult trying to capture such an abstract art with such a rigid and straight-forward implementation. The quality of the music produced is a hit or a miss. Every so often, there may be a musical phrase that sounds like it could develop into something with real potential, and on occasion I'll hear bits and pieces that very closely resembles my style of improvisation. But for the most part, the compositions are pretty bland, and on occasion falls apart musically.</p>
 
-<p>On the bright side, this did turn out better than I thought it would. I realized it is not difficult to string together a coherent string of notes. Perhaps the greatest difficulty in creating something truly musical and interesting is making the program context-aware. I've only tried implementing some context-aware rules (more likely to move in smaller intervals than large ones, follow ascension/descension patterns, so it doesnt just jump up and down the scale every other note, etc), but there are plenty more that I have in mind that I'd like to play around with in the near future. My problem is that I did not structure the code in such a way that I can easily add context-aware features without making the code messier than it already is.</p>
+<p>On the bright side, this did turn out better than I thought it would. I realized it is not difficult to string together a coherent string of notes. Perhaps the greatest difficulty in creating something truly musical and interesting is making the program context-aware. I've only added some rules, but there are plenty more that I have in mind that I'd like to play around with in the near future. The only problem is that the way I designed the code makes it quite cumbersome to add such rules, and I would have to do some large code restructuring if I want to continue with this particular implementation.</p>
 
-<p>This program can compose in both major and minor key. Currently, I'm omitting chords until I can get an acceptable level of quality in the music.</p>
+<p>This program can compose in both major and minor key. Currently, I'm omitting chords until I can get an acceptable level of quality in the music. </p>
 
 <p>Here are the results: </p>
 
@@ -80,6 +107,8 @@
 
 <p>This one starts off rough, but actually gets decent around 0:22:
 <a href="https://drive.google.com/open?id=0B-yYdO8MBojURldreWF4aDQ2VEE">https://drive.google.com/open?id=0B-yYdO8MBojURldreWF4aDQ2VEE</a></p>
+
+<p>Piece from earlier stages of development:</p>
 
 <p>Here are a few examples of pieces that started off pretty well, but fall apart
 comps/interestingstart.mid
@@ -98,7 +127,7 @@ comps/interestingstart.mid
 
 <p>As it turns out, David Cope had already tried this decades ago, and like he, I realized that it's very difficult to try to capture the abstractness of music with such an inflexible and straight-forward implementation. Sure, it's definitely possible, but it would require a ton of code, and will probably become very messy, very quickly.</p>
 
-<p>Perhaps the best option would be to approach this problem from an artificial intelligence standpoint. Like I mentioned above, one solution is, perhaps, carefully parsing a batch of similarly-styled MIDI files and and aggregating the data into a structured decision tree, such that tree depth corresponds to time or beat number. I think, if structured carefully, the tree would be unconditionally context-aware, and doing a linear traversal down random branches should result in a song that flows.</p>
+<p>Perhaps the best option would be to approach this problem from an artificial intelligence standpoint. Like I mentioned above, one solution is, perhaps, carefully parsing a batch of similarly-styled MIDI files and and aggregating the data into a structured decision tree, such that tree depth corresponds to time or beat number. I think, if structured carefully, the tree would be unconditionally context-aware, and doing a linear traversal down random branches should result in a song that flows well.</p>
 
 <p>This idea is similar to David Cope's idea of recombinance, where Cope suggests breaking down and recombining parts from different pieces to create a new piece. However, rather than relying on the recombination of parts to create a piece, I want to instead use these parts as a means to teach the program certain subtle musical tendencies, which it could then use as a guideline to create something entirely new.</p>
       </section>
