@@ -53,14 +53,14 @@
 
 <p>Considering how far technology has advanced since then, I decided to take a crack at making my own autonomous instrument, but unlike the ones created during the renaissance and baroque periods, this instrument does not play preset pieces. Instead, it writes its own pieces. </p>
 
-<p>I call this program Composer (great naming sense, I know). This project explores the possibilities of music intelligence by first developing a program that can adhere to fundamental rules of western music theory, then then expanding on the program by attempting to imbue it with my own compositional style and preferences. Because this idea was, at the time, quite abstract, I decided to go for a more straight-forward implementation that involves hard-coding my own rules and probability distributions, rather than tackling it from an artificial intelligence and machine-learning standpoint.</p>
+<p>This project explores the possibilities of music intelligence by first developing a program that can adhere to fundamental rules of western music theory, then then expanding on the program by attempting to imbue it with my own compositional style and preferences. Because this idea was, at the time, quite abstract, I decided to go for a more straight-forward implementation that involves hard-coding my own rules and probability distributions, rather than tackling it from an artificial intelligence and machine-learning standpoint.</p>
 
 <h3>
 <a id="implementation" class="anchor" href="#implementation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Implementation</h3>
 
 <p>My approach is a rather simple one. In its most basic form, it essentially constructs a scale in a designated key, and psuedo-randomly selects notes from the scale with randomly generated durations. However, in order to make the composition sound less like a jumble of notes and more like a piece that was created with intention, a piece in its most basic form requires a chord progression, steady rhythm, phrasing, and cadence.</p>
 
-<p>My initial thought was to deal with these aspects simultaneously, afterall music is very contextually dependent (i.e. the selection of a note often influences subsequent notes). However, because I wasn't even sure if this would work at the time, I decided against this and instead ended up determining these aspects (mostly) independently. This way, I could easily adjust invdividual parameters without needing to rewrite large chunks of code.</p>
+<p>My initial thought was to deal with these aspects simultaneously, afterall music is very contextually dependent (i.e. the selection of a note often influences subsequent notes) and requires a kind of cohesiveness between all aspects from rhythm to pitch to appear "complete". However, because I wasn't even sure if this would work at the time, I decided, instead, to determine each of these aspects individually and (for the most part) independent of one another. This way, I could easily adjust invdividual parameters without needing to rewrite large chunks of code.</p>
 
 <p>To keep things simple for now, all pieces are in 4/4 time, and each phrase is 4 measures long. To begin, I subdivided the composition into phrases, which were further subdivided into measures, and then notes. There are several stages this program goes through to compose a piece: we begin by establishing the chord progression of the song, determining a chord for every 2-4 beats. One crucial rule to apply here is that phrases often end with an authentic cadence, and this almost always resolves into the tonic as the piece ends.</p>
 
@@ -70,8 +70,7 @@
 
 <p>However, even with these rules, the compositions still fell apart after several measures. The notes were oftentimes erratic, constantly jumping up and down large intervals. Here's an example of the types of compositions outputted at this stage of development:</p>
 
-<p>(comps/interestingstart.mid)
-<a href="https://drive.google.com/open?id=0B-yYdO8MBojUSXF2UzhDR0NwWWM">https://drive.google.com/open?id=0B-yYdO8MBojUSXF2UzhDR0NwWWM</a></p>
+<p><a href="https://drive.google.com/open?id=0B-yYdO8MBojUVzBfOHB2US1TY2c">https://drive.google.com/open?id=0B-yYdO8MBojUVzBfOHB2US1TY2c</a></p>
 
 <p>As you can see, it begins with a very coherent and interesting sound, but the uncontrolled and erratic jumps cause it to fall apart pretty quickly. To solve this problem, I needed context-dependent rules, where previous notes and rhythm determines the probabilities of subsequent notes. Unfortunately with my implementation, adding these rules became cumbersome and required many additional lines of code. It was difficult to keep the code clean without restructuring and rewriting large chunks of code. As a result, I only included a subset of rules I had wanted to include. The following are some of the rules I had included:</p>
 
